@@ -287,9 +287,8 @@ function gameOver(data){
 }
 
 function playerLeftRoom(name){
-	//$("#message1").text(name + " left the game.");
+	$("#message1").text(name + " left the game.");
 	$("#message2").text(name + " left the game.");
-	//$("#message3").text(name + " left the game.");
 }
 
 function displayNewWord(data){

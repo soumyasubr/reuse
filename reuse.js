@@ -6,6 +6,7 @@ var io,
 	wordList = [], // list of words to validate against
 	rejectList = []; // list of words to avoid
 
+
 //TODO: Move config variables to JSON or elsewhere
 var MAX_TURNS = 4,
 	MAX_PLAYERS = 4,
@@ -315,20 +316,24 @@ function computeWinner(roomId){
 	var players = games[roomId].players; //players in room
 	var score = [];
 	var winner = [];
-	
-	for (var id in players) {
-		score.push(players[id].score); // Create an array that only contains the score
+	var id;
+	for (id in players) {
+		if (players.hasOwnProperty(id)) {
+			score.push(players[id].score); // Create an array that only contains the score
+		}
 	}
 	var maxScore = Math.max.apply(Math, score); // Calculate highest score
 
 	// Identify player(s) with highest total score
-	for (var id in players) {
-		if (players[id].score === maxScore){
-			winner.push({
-				id: id, 
-				name: players[id].name, 
-				score: players[id].score
-			}); 
+	for (id in players) {
+		if (players.hasOwnProperty(id)) {
+			if (players[id].score === maxScore){
+				winner.push({
+					id: id, 
+					name: players[id].name, 
+					score: players[id].score
+				}); 
+			}
 		}
 	}
 	console.log('winner:', winner);
