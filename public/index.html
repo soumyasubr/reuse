@@ -1,0 +1,72 @@
+<html>
+	<body>
+<!-- 		<div id="canvas"></div> -->
+<!-- 		<script id="create-join" type="text/template"> -->
+		<div id="create-join">
+			<h2>Reuse</h2>
+    		<form id="room-form" action="">
+    			<p>Player Name: 
+    				<input id="name-input" placeholder="Enter player name.."/> 
+    			</p>
+				<p>
+<!--  					<input id="numPlayers-input" placeholder="Enter no. of players.." value='2'/> Setting default for now -->
+					<select id="numPlayers-input">
+						<option value="2">2 players</option>
+						<option value="3">3 players</option>
+						<option value="4">4 players</option>
+					</select>
+					<button id="create-btn" type="button">Create</button>
+				</p> 
+				(or) 
+				<p>
+					<input id="room-input" placeholder="Enter room id.."/>
+					<button id="join-btn" type="button">Join</button>
+				</p>
+    		</form>
+    		<p id="message1">Create new game (or) Join existing game</p>
+    		<button id="start-btn" type="button" style="display: none;">Start Now</button>
+    	</div>
+<!-- 		</script> -->
+    	
+<!--     	<script id="game-screen" type="text/template"> -->
+<!-- TODO: Hide game-screen div by default using CSS rather than inline - style="display: none;" -->
+		<div id = "game-screen" style="display: none;">
+			<label id = "player-name"></label>
+			<label id = "room-id"></label>
+    		<h2 id="game-title">Reuse</h2>
+    		Reuse fragments from the word below to make a new word
+			<form>
+				<h2>
+					<label id="word">WORD</label>
+				</h2>
+ 				<input id="word-input" placeholder="Enter your response.."/> <!--disabled=true -->
+				<p>
+					<input id="pin-rdo" type="radio" class="pin-ban-rdo" name="pin-ban" value="pin">Pin
+					<input id="ban-rdo" type="radio" class="pin-ban-rdo" name="pin-ban" value="ban">Ban
+					<input id="letter-input" placeholder="Enter letter to pin/ ban.." style="display: none;"/> 
+				</p>
+				<p>
+					<button id="done-btn">Done</button>
+				</p>
+	   	 			<ul id = "word-list">
+					</ul>
+					
+				<p id="message2">Message goes here</p>
+			</form>
+		</div>
+<!--     	</script> -->
+
+		<div id = "game-over" style="display: none;">
+			<h3>Game Over!</h3>
+			<ul id = "word-list2">
+			</ul>
+			<p id="message3">Message goes here</p>
+		</div>
+		
+ 		<script src="/socket.io/socket.io.js"></script> <!-- how does this work? i haven't installed socket.io -->
+		<script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+
+		<!-- client-side javascript-->
+    	<script src="client.js"></script>
+	</body>
+</html>
