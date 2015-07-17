@@ -1,37 +1,30 @@
 // Global variables
-var fs = require('fs');
 var io,
 	gameSocket,
 	games = {}, // game state and player information, indexed by roomId
 	roomLookup = {}, // lookup room by client socket ID
-	wordList = [],
-	swearWordsList = [];
+	wordList = [], // list of words to validate against
+	rejectList = []; // list of words to avoid
 
 //TODO: Move config variables to JSON or elsewhere
 var MAX_TURNS = 4,
 	MAX_PLAYERS = 4,
 	MAX_PIN_BAN = 2;
 
-//TODO: Organize like classes
-//var player = function(){
-//	a: function(){}	
-//};
 
-
-/* Load word lists - All words and swear words. 
- * The publicly available '2of12inf' file from the 12dicts project is used. http://wordlist.aspell.net/12dicts/
- * Swear word list obtained from http://www.bannedwordlist.com/
+/* Load word lists for valid words and offensive words 
+ * '2of12inf' file from http://wordlist.aspell.net/12dicts/ is used to identify valid words.
  */
 function loadWordLists() {
-//	var fs = require('fs');
+	var fs = require('fs');
 	try {
 		var validWords = fs.readFileSync('2of12inf.txt', 'utf-8');
 		wordList = validWords.toString().split('\n').map(function(str) { //create array and trim each element
-			return str.toUpperCase().trim();
+			return str.replace('%','').trim(); // remove % and newline from words
 		});
-		var swearWords = fs.readFileSync('swearWords.txt', 'utf-8');
-		swearWordsList = swearWords.toString().split('\n').map(function(str) { //create array and trim each element
-			return str.replace('%','').toUpperCase().trim(); // remove % and newline from words
+		var rejectedWords = fs.readFileSync('rejectedWords.txt', 'utf-8');
+		rejectList = rejectedWords.toString().split('\n').map(function(str) { //create array and trim each element
+			return str.trim(); // remove newline from words
 		});
 		console.log('Dictionary successfully loaded');
 	}
@@ -136,10 +129,12 @@ function joinExistingGame(data) {
 }
 
 
-/* Generate a random word that is no longer than 7 letters and is not a swear word.
- * The publicly available '3esl' file from the 12dicts project is used to identify simple words. http://wordlist.aspell.net/12dicts/
-*/
+/* Generate a random word that is no longer than 6 letters.
+ * 3esl' file from http://wordlist.aspell.net/12dicts/ is used to identify simple words.
+ * Offensive words are rejected 
+ */
 function randomWord(){
+	var fs = require('fs');
 	var simpleWordList;
 	try {
 		var simpleWords = fs.readFileSync('3esl.txt', 'utf-8');
@@ -156,13 +151,13 @@ function randomWord(){
 	var word;
 	do {
 		word = simpleWordList[parseInt(Math.random() * simpleWordList.length)];
-		console.log(word);
+		//console.log(word);
 	}
 	while (	word === undefined || 
-			(!/^[a-z]+$/.test(word)) ||
-			word.length > 6 ||
+			(!/^[a-z]+$/.test(word)) || // check for anything except lower case characters
+			word.length > 6 || // word length between 3 and 6
 			word.length < 3 ||
-			swearWordsList.indexOf(word.toUpperCase) > -1);
+			rejectList.indexOf(word.toUpperCase) > -1); // check for rejected word
 	return word;
 }
 
@@ -218,12 +213,13 @@ function isFragmentReused(string1, string2) {
 }
 
 
-function isEnglishWord(word){
+/*function isEnglishWord(word){
 	var ret;
-	ret = 	wordList.indexOf(word) > -1 &&
-			swearWordsList.indexOf(word) === -1;
+	ret = 	wordList.indexOf(word.toLowerCase) > -1 &&
+			rejectList.indexOf(word.toLowerCase) === -1;
+	
 	return ret;
-}
+}*/
 
 
 /* Checks if the player's response is valid.
@@ -264,14 +260,21 @@ function isValidWord(data) {
 		} 
 	}
 	
-	// Only if word is valid so far, check if valid dictionary word 
+	// Only if word is valid so far, check if word is an acceptable English word 
+	//TODO: reject list for random word generation should be different from logic for valid word
 	if (ret.value) {
-		if (!isEnglishWord(data.currWord)) {
+		if (wordList.indexOf(data.currWord.toLowerCase()) === -1) { // not in word list
 			ret.message = data.currWord + ' is not in our dictionary.';
 			ret.value = false;
 		}
+		// if word is in word list, check if it is a rejected word
+		if (ret.value) {
+			if (rejectList.indexOf(data.currWord.toLowerCase()) > -1) { // found in rejected list
+				ret.message = 'This word is not allowed.';
+				ret.value = false;
+			}
+		}
 	}
-
 	console.log('isValidWord: ', ret, data.currWord);
 	return ret;
 }
@@ -293,7 +296,6 @@ function reusedFragment(currWord, prevWord) {
 			isReused = (prevWord.indexOf(currWord.substr(i,j)) > -1);
 			if (isReused) {
 				ret = currWord.substr(i,j);
-				// j will give length of reused fragment
 			}
 			i++;
 		}
@@ -460,14 +462,18 @@ exports.initGame = function(sio, socket) {
     gameSocket.on('error', function (err) { console.error(err.stack);});
     
     // Load dictionary if not already loaded
-	if (wordList.length === 0 || swearWordsList.length === 0) {
+	if (wordList.length === 0 || rejectList.length === 0) {
 		loadWordLists();
 		//console.log('check:', randomWord());
 	}
-	console.log('check:', randomWord());
+	console.log('checking random word:', randomWord());
 };
 
 
+//TODO: Organize the code better. Like classes..
+//var player = function(){
+//	a: function(){}	
+//};
 
 
 
