@@ -1,15 +1,12 @@
 <html>
 	<body>
-<!-- 		<div id="canvas"></div> -->
-<!-- 		<script id="create-join" type="text/template"> -->
+		<h2>Reuse</h2>
 		<div id="create-join">
-			<h2>Reuse</h2>
     		<form id="room-form" action="">
     			<p>Player Name: 
     				<input id="name-input" placeholder="Enter player name.."/> 
     			</p>
 				<p>
-<!--  					<input id="numPlayers-input" placeholder="Enter no. of players.." value='2'/> Setting default for now -->
 					<select id="numPlayers-input">
 						<option value="2">2 players</option>
 						<option value="3">3 players</option>
@@ -26,15 +23,10 @@
     		<p id="message1">Create new game (or) Join existing game</p>
     		<button id="start-btn" type="button" style="display: none;">Start Now</button>
     	</div>
-<!-- 		</script> -->
-    	
-<!--     	<script id="game-screen" type="text/template"> -->
+
 <!-- TODO: Hide game-screen div by default using CSS rather than inline - style="display: none;" -->
 		<div id = "game-screen" style="display: none;">
-			<label id = "player-name"></label>
-			<label id = "room-id"></label>
-    		<h2 id="game-title">Reuse</h2>
-    		Reuse fragments from the word below to make a new word
+    		<p>Reuse fragments from the word below to make a new word</p>
 			<form>
 				<h2>
 					<label id="word">WORD</label>
@@ -48,25 +40,19 @@
 				<p>
 					<button id="done-btn">Done</button>
 				</p>
-	   	 			<ul id = "word-list">
-					</ul>
-					
+	   	 		<ul id = "word-list"></ul>	
 				<p id="message2">Message goes here</p>
 			</form>
 		</div>
-<!--     	</script> -->
 
 		<div id = "game-over" style="display: none;">
 			<h3>Game Over!</h3>
-			<ul id = "word-list2">
-			</ul>
-			<p id="message3">Message goes here</p>
+			<h4 id="message3">Message goes here</h4>
+			<ul id = "word-list2"></ul>
 		</div>
 		
- 		<script src="/socket.io/socket.io.js"></script> <!-- how does this work? i haven't installed socket.io -->
-		<script src="http://code.jquery.com/jquery-1.11.1.js"></script>
-
-		<!-- client-side javascript-->
+ 		<script src="../node_modules/socket.io/lib/socket.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
     	<script src="client.js"></script>
 	</body>
 </html>

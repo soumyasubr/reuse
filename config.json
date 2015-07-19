@@ -1,0 +1,5 @@
+{
+	"MAX_PLAYERS": 4,
+	"MAX_TURNS": 4,
+	"MAX_PIN_BAN": 2
+}
