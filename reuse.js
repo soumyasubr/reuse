@@ -1,4 +1,5 @@
 // Global variables
+var fs = require('fs');
 var io,
 	gameSocket,
 	games = {}, // game state and player information, indexed by roomId
@@ -6,18 +7,14 @@ var io,
 	wordList = [], // list of words to validate against
 	rejectList = []; // list of words to avoid
 
-
-//TODO: Move config variables to JSON or elsewhere
-var MAX_TURNS = 4,
-	MAX_PLAYERS = 4,
-	MAX_PIN_BAN = 2;
+var config = JSON.parse(fs.readFileSync('config.json','utf-8'));
 
 
 /* Load word lists for valid words and offensive words 
  * '2of12inf' file from http://wordlist.aspell.net/12dicts/ is used to identify valid words.
  */
 function loadWordLists() {
-	var fs = require('fs');
+//	var fs = require('fs');
 	try {
 		var validWords = fs.readFileSync('2of12inf.txt', 'utf-8');
 		wordList = validWords.toString().split('\n').map(function(str) { //create array and trim each element
@@ -46,8 +43,8 @@ function createNewGame(data) {
 	
 	// Check if client is requesting a game for more than MAX_PLAYERS
 	// This is checked on the server even though the client already prevents this.
-	if (data.numPlayers > MAX_PLAYERS) {
-		io.sockets.to(id).emit('error', {message: "Maximum number of players: " + MAX_PLAYERS}); 
+	if (data.numPlayers > config.MAX_PLAYERS) {
+		io.sockets.to(id).emit('error', {message: "Maximum number of players: " + config.MAX_PLAYERS}); 
 		return false;
 	}
 	
@@ -135,7 +132,7 @@ function joinExistingGame(data) {
  * Offensive words are rejected 
  */
 function randomWord(){
-	var fs = require('fs');
+//	var fs = require('fs');
 	var simpleWordList;
 	try {
 		var simpleWords = fs.readFileSync('3esl.txt', 'utf-8');
@@ -386,7 +383,7 @@ function nextTurn(data) {
     if (data.nextPinOrBan === 'pin' || data.nextPinOrBan === 'ban') {
     	games[roomId].players[id].pinBanUsed++; //update number of pins/ bans used 
     }
-    data.nextPinBanLeft = MAX_PIN_BAN - games[roomId].players[data.nextPlayer].pinBanUsed; // number of pins/ bans left for next player
+    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayer].pinBanUsed; // number of pins/ bans left for next player
     console.log('nextPinBanLeft', data.nextPlayer, data.nextPinBanLeft);
     
     // Remove unnecessary properties
@@ -400,7 +397,7 @@ function nextTurn(data) {
     // Determine if game is over
     var turn = ++games[roomId].players[data.nextPlayer].turn; // Update turn number
 	console.log('end of turn', games[roomId].players);
-	if (turn > MAX_TURNS) { // If all turns have been played
+	if (turn > config.MAX_TURNS) { // If all turns have been played
 		data.winner = computeWinner(roomId);
 		delete games[roomId];
 		io.sockets.to(roomId).emit('gameOver', data);
@@ -425,13 +422,16 @@ function disconnect() {
 			var playerName = players[id].name; // Name of disconnected player
 			var turns = [];
 			var nextPlayerId;
+			var key;
 
 			// Notify other players in the room that somebody left
 			io.sockets.to(roomId).emit('playerLeftRoom', playerName);
 		
 			// Determine whose turn it is
-			for (var key in players){
-				turns.push(players[key].turn);
+			for (key in players) {
+				if (players.hasOwnProperty(key)) {
+					turns.push(players[key].turn);
+				}
 			}
 			var maxTurn = Math.max.apply(Math, turns); // Find the highest turn
 			
