@@ -1,9 +1,8 @@
-var App = function() {
+//var App = function() {
 	'use strict';
-	
-	var socket = io();
+	var socket = io.connect();
 	//could use this also
-	//var socket = io.connect();
+	//var socket = io();
 	
 	var	myName,
 		roomId,
@@ -21,7 +20,6 @@ var App = function() {
 				playerName: myName, 
 				numPlayers: parseInt($('#numPlayers-input').val())
 		};
-		
 	    socket.emit('createNewGame',data);
 	    return false;
 	}
@@ -85,7 +83,7 @@ var App = function() {
 	}
 	
 	
-	function isFragmentReused(string1, string2){
+	function isFragmentReused(string1, string2) {
 		var shortWord,
 		 	longWord,
 		 	i = 0,
@@ -110,6 +108,9 @@ var App = function() {
 	/*	First, validate word input. Then validate pin ban input. 
 		if valid, send request to server to validate against dictionary.
 	*/	
+		//Stop timer
+		//runTimer(1);
+		
 		var currWord = $('#word-input').val().toUpperCase().trim();
 		var prevWord = $("#word").text();
 		var valid = true;
@@ -230,7 +231,6 @@ var App = function() {
 	
 	// Pin Ban radio button click
 	$('.pin-ban-rdo').click(function() {
-		//TODO: Limit no. of pins/ bans
 		
 		// Toggle check and uncheck
 		if ($(this).hasClass('uncheck')){ // if previously checked
@@ -283,12 +283,26 @@ var App = function() {
 		$("#message3").text(text + '!');
 	}
 	
-	function playerLeftRoom(name){
-		$("#message1").text(name + " left the game.");
-		$("#message2").text(name + " left the game.");
-	}
+
+//	function runTimer(timeLeft) {
+//		function countdown() {
+//			  if (timeLeft === 0) {
+//			    clearTimeout(timerId);
+//			    console.log('Time is up');
+//			    clearInterval(timerId);
+//			    //doSomething();
+//			  } 
+//			  else {
+//				  $("#timer").text('0:' + timeLeft);
+//			    timeLeft--;
+//			  }
+//		}
+//		//var timeLeft = 30;
+//		var timerId = setInterval(countdown, 1000);
+//	}
 	
-	function displayNewWord(data){
+	
+	function displayNewWord(data) {
 		pinOrBan = data.pinOrBan; //myPinOrBan
 		letter = data.letter; //myLetter
 		var formattedWord;
@@ -299,7 +313,7 @@ var App = function() {
 		
 		// Apply green/ red color to pinned/ banned letter
 		if (pinOrBan === ''){
-			formattedWord = data.currWord // no formatting
+			formattedWord = data.currWord; // no formatting
 		}
 		else if (pinOrBan === 'pin'){
 			formattedWord =  data.currWord.replace(letter, '<span style="color:lime">' + letter + '</span>'); 
@@ -333,6 +347,9 @@ var App = function() {
 			if (data.nextPinBanLeft === 0) {
 				$('.pin-ban-rdo').prop('disabled',true);
 			}
+			
+			// Start timer
+			//runTimer(30);
 		}
 		else {
 			$('#word-input').prop('placeholder', 'Not your turn');
@@ -341,7 +358,15 @@ var App = function() {
 			$('.pin-ban-rdo').prop('disabled',true);
 			$('#message2').text(data.nextPlayerName + "'s turn.");
 		}
+		
 	}
+	
+	
+	function playerLeftRoom(name) {
+		$("#message1").text(name + " left the game.");
+		$("#message2").text(name + " left the game.");
+	}
+	
 	
 	//Event handlers
 	$('#create-btn').on('click', createGame);
@@ -366,6 +391,8 @@ var App = function() {
 	socket.on('playerLeftRoom', playerLeftRoom );
 	socket.on('gameOver', gameOver);
 	socket.on('error', error);
-
-};
-new App();
+	
+//};
+//
+//// Initial call
+//new App();
