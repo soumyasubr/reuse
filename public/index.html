@@ -26,8 +26,9 @@
 
 <!-- TODO: Hide game-screen div by default using CSS rather than inline - style="display: none;" -->
 		<div id = "game-screen" style="display: none;">
-    		<p>Reuse fragments from the word below to make a new word</p>
+    		<p>Reuse as many continuous letters as possible from the word below to make a new word</p>
 			<form>
+				<label id="timer"></label>
 				<h2>
 					<label id="word">WORD</label>
 				</h2>
@@ -51,7 +52,7 @@
 			<ul id = "word-list2"></ul>
 		</div>
 		
- 		<script src="../node_modules/socket.io/lib/socket.js"></script>
+ 		<script src="/socket.io/socket.io.js"></script>
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
     	<script src="client.js"></script>
 	</body>
