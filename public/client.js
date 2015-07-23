@@ -1,13 +1,11 @@
-//var App = function() {
+var App = function() {
 	'use strict';
 	var socket = io.connect();
-	//could use this also
-	//var socket = io();
-	
 	var	myName,
 		roomId,
 		pinOrBan, //myPinOrBan
-		letter; //myLetter
+		letter, //myLetter
+		timerId; // timer handler
 	
 	//Display the landing page with Create and Join buttons
 	$('#game-screen').hide();
@@ -54,7 +52,7 @@
 		$('#name-input').prop('disabled', true);
 		
 		// If all players have not joined, then wait
-		if (data.numPlayersInRoom < data.numPlayers){
+		if (data.numPlayersInRoom < data.numPlayers) {
 			if (data.numPlayersInRoom === 1) { // If this is the host (first person to join room)
 				$('#message1').text('Created room ' + data.roomId + ' for ' + data.numPlayers + 
 						' players. The game will automatically start once all players join.');
@@ -67,7 +65,7 @@
 		}
 		
 		// If all players have joined, then start game
-		else if (data.numPlayersInRoom === data.numPlayers){
+		else if (data.numPlayersInRoom === data.numPlayers) {
 			// Only the last client to join the room notifies the server to start game.
 			// This is to avoid multiple emits going to the server.
 			if (socket.id === data.mySocketId){
@@ -76,7 +74,7 @@
 		}
 		
 		//If room is full. This is an error trap. This is already handled on the server.
-		else{
+		else {
 			$("#message1").text("Too many players. Expected " + data.numPlayers + 
 					". Found " + data.numPlayersInRoom);		
 		}
@@ -108,9 +106,6 @@
 	/*	First, validate word input. Then validate pin ban input. 
 		if valid, send request to server to validate against dictionary.
 	*/	
-		//Stop timer
-		//runTimer(1);
-		
 		var currWord = $('#word-input').val().toUpperCase().trim();
 		var prevWord = $("#word").text();
 		var valid = true;
@@ -251,9 +246,12 @@
 		}
 	});
 	
-	function gameOver(data){
-		var winner = data.winner;
+	function gameOver(winner) {
 		var text = '';
+		
+		//Stop timer if still running
+		console.log('in gameOver');
+		stopTimer();
 		
 		// Display 'game-over' div and hide other divs.
 		$('#create-join').hide();
@@ -283,23 +281,87 @@
 		$("#message3").text(text + '!');
 	}
 	
-
-//	function runTimer(timeLeft) {
-//		function countdown() {
-//			  if (timeLeft === 0) {
-//			    clearTimeout(timerId);
-//			    console.log('Time is up');
-//			    clearInterval(timerId);
-//			    //doSomething();
-//			  } 
-//			  else {
-//				  $("#timer").text('0:' + timeLeft);
-//			    timeLeft--;
-//			  }
-//		}
-//		//var timeLeft = 30;
-//		var timerId = setInterval(countdown, 1000);
-//	}
+	function stopTimer() {
+		clearTimeout(timerId);
+		$("#timer").text('1:00');
+		console.log('Timer stopped');
+	}
+	
+	function startTimer() {
+		var timeLeft = 30;
+		function countdown() {
+			if (timeLeft === 0) {
+				//stopTimer();
+				socket.emit('passTurn');
+				console.log('Time is up');
+			} 
+			else {
+				timeLeft--;
+				$("#timer").text('0:' + timeLeft);
+			}
+		}
+		console.log('Timer started');
+		timerId = setInterval(countdown, 1000);
+		
+	}
+	
+	
+	function makeActivePlayer(pinBanLeft) {
+		//$('#word-input').prop('placeholder', 'Enter your response..');
+//		$('#word-input').prop('disabled',false);
+//		$('#done-btn').prop('disabled',false);
+//		$('#message2').text('Your turn.');
+//			$('.pin-ban-rdo').prop('disabled',false);
+//		if (pinBanLeft === 0) {
+//			$('.pin-ban-rdo').prop('disabled',true);
+//		}	
+	}
+	
+	function makeInactivePlayer(nextPlayerName) {
+		//$('#word-input').prop('placeholder', 'Not your turn');
+//		$('#word-input').prop('disabled',true);
+//		$('#done-btn').prop('disabled',true);
+//		$('.pin-ban-rdo').prop('disabled',true);
+//		$('#message2').text(nextPlayerName + "'s turn.");
+	}
+	
+	
+	function activateNextPlayer(data) {
+		// Reset form elements
+		$('#word-input').val('');
+		$('#letter-input').val('');
+		$('#letter-input').hide();
+		$('.pin-ban-rdo').prop('checked', false); 
+		$('.pin-ban-rdo').removeClass('uncheck'); // reset check/ uncheck toggle
+		
+		if (data.nextPlayerId === socket.id) { 
+			//makeActivePlayer(data.nextPinBanLeft);
+			// Enable form elements for next player
+			$('#word-input').prop('disabled',false);
+			$('#done-btn').prop('disabled',false);
+			$('#message2').text('Your turn.');
+				$('.pin-ban-rdo').prop('disabled',false);
+			if (data.nextPinBanLeft === 0) {
+				$('.pin-ban-rdo').prop('disabled',true);
+			}	
+			
+			// Start timer
+			console.log('in activateNextPlayer');
+			startTimer(); 
+		}
+		else {
+			//makeInactivePlayer(data.nextPlayerName);
+			// Disable form elements for all other players
+			$('#word-input').prop('disabled',true);
+			$('#done-btn').prop('disabled',true);
+			$('.pin-ban-rdo').prop('disabled',true);
+			$('#message2').text(data.nextPlayerName + "'s turn.");
+			
+			// Stop timer
+			console.log('in activateNextPlayer');
+			stopTimer();
+		}
+	}
 	
 	
 	function displayNewWord(data) {
@@ -310,6 +372,9 @@
 		//Show only game screen
 		$('#create-join').hide();
 		$('#game-screen').show();
+		
+		// Activate next player
+		activateNextPlayer(data);
 		
 		// Apply green/ red color to pinned/ banned letter
 		if (pinOrBan === ''){
@@ -331,33 +396,11 @@
 		//TODO: Update total score on client using information from server - data.totalScore
 		
 		// Reset form elements
-		$('#word-input').val('');
-		$('#letter-input').val('');
-		$('#letter-input').hide();
-		$('.pin-ban-rdo').prop('checked', false); 
-		$('.pin-ban-rdo').removeClass('uncheck'); // reset check/ uncheck toggle
-		
-		// Enable form elements only for current player
-		if (data.nextPlayer === socket.id) {
-			$('#word-input').prop('placeholder', 'Enter your response..');
-			$('#word-input').prop('disabled',false);
-			$('#done-btn').prop('disabled',false);
-			$('#message2').text('Your turn.');
-				$('.pin-ban-rdo').prop('disabled',false);
-			if (data.nextPinBanLeft === 0) {
-				$('.pin-ban-rdo').prop('disabled',true);
-			}
-			
-			// Start timer
-			//runTimer(30);
-		}
-		else {
-			$('#word-input').prop('placeholder', 'Not your turn');
-			$('#word-input').prop('disabled',true);
-			$('#done-btn').prop('disabled',true);
-			$('.pin-ban-rdo').prop('disabled',true);
-			$('#message2').text(data.nextPlayerName + "'s turn.");
-		}
+//		$('#word-input').val('');
+//		$('#letter-input').val('');
+//		$('#letter-input').hide();
+//		$('.pin-ban-rdo').prop('checked', false); 
+//		$('.pin-ban-rdo').removeClass('uncheck'); // reset check/ uncheck toggle
 		
 	}
 	
@@ -388,11 +431,13 @@
 	
 	socket.on('playerJoinedRoom', playerJoinedRoom );
 	socket.on('newWord', displayNewWord);
+	//socket.on('responseAccepted', stopTimer);
+	socket.on('activateNextPlayer', activateNextPlayer);
 	socket.on('playerLeftRoom', playerLeftRoom );
 	socket.on('gameOver', gameOver);
 	socket.on('error', error);
 	
-//};
-//
-//// Initial call
-//new App();
+};
+
+// Initial call
+new App();
