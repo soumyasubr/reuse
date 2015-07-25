@@ -1,6 +1,6 @@
 {
 	"MAX_PLAYERS": 4,
-	"MAX_TURNS": 2,
+	"MAX_TURNS": 3,
 	"MAX_PIN_BAN": 1,
 	"VALID_WORDS": "2of12inf.txt",
 	"REJECTED_WORDS": "rejectedWords.txt",
