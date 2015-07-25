@@ -473,22 +473,22 @@
 
 		*/
 
-		$(from).addClass("scaleDownUp");
+		$(from).addClass("scale-out");
 		$(to).removeClass("invisible-layer");
-		$(to).addClass("delay300 scaleUp");
+		$(to).addClass("delay scale-up");
 
 		$(from).on("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd", function () {
 			console.log("animation end " + from);
 			$(from).off("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd");
 			$(from).addClass("invisible-layer");
-			$(from).removeClass("scaleDownUp current-view");
+			$(from).removeClass("scale-out current-view");
 		});
 
 		$(to).on("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd", function () {
 			console.log("animation end: " + to);
 			$(to).off("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd");
 			$(to).addClass("current-view");
-			$(to).removeClass("delay300 scaleUp");
+			$(to).removeClass("delay scale-up");
 		});
 
 	}
