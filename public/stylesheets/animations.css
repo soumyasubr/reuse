@@ -1,3 +1,4 @@
+/*
 @-webkit-keyframes fade-in-out {
     0% {
         opacity:0;
@@ -47,8 +48,7 @@
 
     opacity:0;
 }  
-
-
+*/
 
 .scale-down {
     -webkit-animation: scale-down .7s ease both;
@@ -66,28 +66,45 @@
 }
 
 @-webkit-keyframes scale-down {
-    from { }
-    to { opacity: 0; -webkit-transform: scale(.8); }
+    to { 
+        opacity: 0; 
+        -webkit-transform: scale(.8); 
+    }
 }
 @keyframes scale-down {
-    from { }
-    to { opacity: 0; -webkit-transform: scale(.8); transform: scale(.8); }
+    to { 
+        opacity: 0; 
+        -webkit-transform: scale(.8); 
+        transform: scale(.8);
+    }
 }
 
 @-webkit-keyframes scale-out {
-    from { }
-    to { opacity: 0; -webkit-transform: scale(1.2); }
+    to { 
+        opacity: 0; 
+        -webkit-transform: scale(1.2); 
+    }
 }
 @keyframes scale-out {
-    from { }
-    to { opacity: 0; -webkit-transform: scale(1.2); transform: scale(1.2); }
+    to { 
+        opacity: 0; 
+        -webkit-transform: scale(1.2); 
+        transform: scale(1.2); 
+    }
 }
 
 @-webkit-keyframes scale-up {
-    from { opacity: 0; -webkit-transform: scale(.8); }
+    from { 
+        opacity: 0; 
+        -webkit-transform: scale(.8); 
+    }
 }
 @keyframes scale-up {
-    from { opacity: 0; -webkit-transform: scale(.8); transform: scale(.8); }
+    from { 
+        opacity: 0; 
+        -webkit-transform: scale(.8); 
+        transform: scale(.8);
+    }
 }  
 
 .delay {
