@@ -1,6 +1,8 @@
 # Logs
 logs
 *.log
+*.txt
+config.json
 
 # Runtime data
 pids
@@ -79,3 +81,4 @@ $RECYCLE.BIN/
 .settings/.jsdtscope
 *.container
 .settings/org.eclipse.wst.jsdt.ui.superType.name
+config.json
