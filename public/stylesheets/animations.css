@@ -1,0 +1,113 @@
+/*
+@-webkit-keyframes fade-in-out {
+    0% {
+        opacity:0;
+    }
+    20% {
+        opacity:1;
+    }
+    80% {
+        opacity:1;
+    }
+    100% {
+        opacity:0;
+    }
+}
+@-moz-keyframes fade-in-out {
+    0% {
+        opacity:0;
+    }
+    20% {
+        opacity:1;
+    }
+    80% {
+        opacity:1;
+    }
+    100% {
+        opacity:0;
+    }
+}
+.fade-in-out {
+    -webkit-transition: all 1s ease-in-out;
+    -moz-transition: all 1s ease-in-out;
+    -o-transition: all 1s ease-in-out;
+    -ms-transition: all 1s ease-in-out;
+    transition: all 1s ease-in-out;
+    
+    -webkit-animation-direction: normal;
+    -webkit-animation-duration: 2s;
+    -webkit-animation-iteration-count: 1;
+    -webkit-animation-name: fade-in-out;
+    -webkit-animation-timing-function: ease-in-out;
+    
+    -moz-animation-direction: normal;
+    -moz-animation-duration: 2s;
+    -moz-animation-iteration-count: 1;
+    -moz-animation-name: fade-in-out;
+    -moz-animation-timing-function: ease-in-out;
+
+    opacity:0;
+}  
+*/
+
+.scale-down {
+    -webkit-animation: scale-down .7s ease both;
+    animation: scale-down .7s ease both;
+}
+
+.scale-out {
+    -webkit-animation: scale-out .5s ease both;
+    animation: scale-out .5s ease both;
+}
+
+.scale-up {
+    -webkit-animation: scale-up .7s ease both;
+    animation: scale-up .7s ease both;
+}
+
+@-webkit-keyframes scale-down {
+    to { 
+        opacity: 0; 
+        -webkit-transform: scale(.8); 
+    }
+}
+@keyframes scale-down {
+    to { 
+        opacity: 0; 
+        -webkit-transform: scale(.8); 
+        transform: scale(.8);
+    }
+}
+
+@-webkit-keyframes scale-out {
+    to { 
+        opacity: 0; 
+        -webkit-transform: scale(1.2); 
+    }
+}
+@keyframes scale-out {
+    to { 
+        opacity: 0; 
+        -webkit-transform: scale(1.2); 
+        transform: scale(1.2); 
+    }
+}
+
+@-webkit-keyframes scale-up {
+    from { 
+        opacity: 0; 
+        -webkit-transform: scale(.8); 
+    }
+}
+@keyframes scale-up {
+    from { 
+        opacity: 0; 
+        -webkit-transform: scale(.8); 
+        transform: scale(.8);
+    }
+}  
+
+.delay {
+    -webkit-animation-delay: .2s;
+    animation-delay: .2s;
+}
