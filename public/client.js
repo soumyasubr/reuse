@@ -9,8 +9,13 @@ var App = function() {
 		turnsArray = [], // array with data for each turn
 		totalScoresArray = []; //array with total scores for each player
 	
+	
+
 	//Display the landing page with Create and Join buttons
 	showScreen('#create-join');
+	// showScreen('#game-screen');
+	// showScreen('#game-over');
+
 //	$('#game-screen').hide();
 //	$('#game-over').hide();
 //	$('#create-join').show();
@@ -47,27 +52,41 @@ var App = function() {
 	function playerJoinedRoom(data) {
 		myRoomId = data.roomId; 
 		
+		console.log("playerJoinedRoom");
+
+
+
 		// Update form elements
 	    $('#create-btn').prop('disabled', true);
 		$('#join-btn').prop('disabled', true);
 		$('#room-input').val('');
-		$('#room-input').prop('disabled', true);
+		// $('#room-input').prop('disabled', true);
 		$('#numPlayers-input').prop('disabled', true);
 		$('#name-input').val(myName);
 		$('#name-input').prop('disabled', true);
 		
+
 		// If all players have not joined, then wait
 		if (data.numPlayersInRoom < data.numPlayers) {
 			if (data.numPlayersInRoom === 1) { // If this is the host (first person to join room)
 				$('#message1').text('Created room ' + data.roomId + ' for ' + data.numPlayers + 
 						' players. The game will automatically start once all players join.');
+				$('#wait-for-players h3').text('Room # is ' + myRoomId + ". Send this to your friends." );
 			}
 			if (data.numPlayersInRoom >= 2) { // If at least 2 players are in the room
-				$('#start-btn').show(); // Enable start button
+				// $('#start-btn').show(); // Enable start button
+				$('#start-btn').prop('disabled',false);
 				$("#message1").text(data.playerName + ' joined room ' + data.roomId +
 						'. The game will automatically start once all players join.');
 			}
+
+			//TODO: Needs info on all players in the room.
+			//TODO: Handle player leave scenario.
+			showScreen('#wait-for-players'); 
+			addPlayerToView(data.playerName);
+			//transition('#create-join','#wait-for-players'); // Discared for now. 
 		}
+
 		
 		// If all players have joined, then start game
 		else if (data.numPlayersInRoom === data.numPlayers) {
@@ -77,14 +96,14 @@ var App = function() {
 				socket.emit('startGame',data.roomId);
 			}
 		}
-		
-		//If room is full. This is an error trap. This is already handled on the server.
+
+		// If room is full. This is an error trap. This is already handled on the server.
 		else {
 			$("#message1").text("Too many players. Expected " + data.numPlayers + 
 					". Found " + data.numPlayersInRoom);		
 		}
+		
 	}
-	
 	
 	function isFragmentReused(string1, string2) {
 		var shortWord,
@@ -248,8 +267,15 @@ var App = function() {
 /*	Display error messages
 */	
 	function error(err){
+		
 		$('#message1').text(err.message);	
 		$('#message2').text(err.message);
+
+		$("#create-join .status span").remove();
+		$("#create-join .status").append("<span class='error'>" + err.message + "</span>");
+		$("#create-join .status span").delay(2500).fadeOut(250, function() { 
+			$(this).remove(); 
+		});
 	}
 	
 	
@@ -410,8 +436,12 @@ var App = function() {
 	
 	
 	function showScreen(divId) {
-		$('div:not('+ divId +')').hide(); // hide everything that isn't #divId
-		$(divId).show();
+		// $('div:not('+ divId +')').hide(); // hide everything that isn't #divId
+		// $(divId).show();
+
+		$('.scene').hide();
+		$(divId).show();	
+
 	}
 
 	
@@ -469,6 +499,7 @@ var App = function() {
 			formattedWord =  data.currWord.replace(myLetter, '<span style="color:red">' + myLetter + '</span>');
 		}
 		$('#word').html(formattedWord);
+		fitWord();
 		
 		showWordList('#word-list',3); //populate table with last 3 words
 		
@@ -500,10 +531,116 @@ var App = function() {
 	
 	function playerLeftRoom(name) {
 		$("#message1").text(name + " left the game.");
-		$("#message2").text(name + " left the game.");
+		$("#message2").text(name + " left the game.");	
 	}
 	
-	
+
+	// -------------------------------------------------------
+	// UI Code 
+	// -------------------------------------------------------
+	document.addEventListener("touchstart", function(){}, true);
+
+	$(window).on('load resize',function() {
+		if($("#game-screen").is(":visible")) {
+			fitWord();
+		}
+	});
+
+
+	$('.ghost-button').on("touchstart", function () {
+		// $('h1').text("touchstart");
+		var isDisabled = $(this).prop('disabled');		
+		if(isDisabled) {
+			return false;
+		}
+		$(this).addClass("active");	
+	});
+
+	$('.ghost-button').on("touchend", function () {
+		var isDisabled = $(this).prop('disabled');
+		if(isDisabled) {
+			return false;
+		}
+		$(this).removeClass("active");	
+	});
+
+	$('#room-input').on('input paste propertychange', function () {
+		var value = $('#room-input').val();
+		// $('h1').text(""+value);
+		if(value.length <= 0) {
+			$('#join-btn').prop('disabled',true);
+			return;
+		}
+		$('#join-btn').prop('disabled',false);
+
+	});
+
+	$("#home-btn, #back-btn").on('click',function(){
+		showScreen('#create-join');
+	});
+
+	$("#play-again-btn").on('click',function(){
+		showScreen('#wait-for-players');
+	});
+
+	function fitWord() {
+		textFit($('#word'),
+			{
+				alignHoriz:true,
+				alignVert:false,
+				widthOnly:true,
+				reProcess:true,
+				maxFontSize:64
+			}
+		);
+	}
+
+	function transition(from, to) {
+
+		console.log("transition - " + from + " -> " + to);
+		
+		$(from).addClass("scale-out");
+		$(to).removeClass("invisible-layer");
+		$(to).addClass("delay scale-up");
+
+		$(from).on("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd", function () {
+			console.log("animation end " + from);
+			$(from).off("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd");
+			$(from).addClass("invisible-layer");
+			$(from).removeClass("scale-out current-view");
+		});
+
+		$(to).on("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd", function () {
+			console.log("animation end: " + to);
+			$(to).off("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd");
+			$(to).addClass("current-view");
+			$(to).removeClass("delay scale-up");
+		});
+
+	}
+
+	function addPlayerToView(playerName){
+			var html = "<tr><td>" + playerName + "</td></tr>";
+			var tableBody = $('#players-list TBODY');
+			// var $tableBody = $('#players-list');
+			tableBody.append(html);
+			
+			// $scrollHeight = $tableBody.prop("scrollHeight");
+			// $height = $tableBody.height();
+			// $maxScroll = $scrollHeight - $height;
+
+			// console.log("scrollHeight: " + $scrollHeight + " | height: " + $height + " | maxScroll: " + $maxScroll);
+
+			// $tableBody.scrollTop($maxScroll);
+
+			// $lastRow = $('.tableSection tr:last');
+			// $div = $lastRow.find('td > div');
+			// $div.fadeIn();
+	}
+
+
+	// -------------------------------------------------------
+
 	function startGame() {
 		// Show confirm dialog 
 		if(confirm("All users have not joined. " +
@@ -513,8 +650,9 @@ var App = function() {
 		}	
 	}
 	
-	
 	//Event handlers
+	
+
 	$('#create-btn').on('click', createGame);
 	$('#join-btn').on('click', joinGame);
 	$("#submit-btn").on("click", validateResponse);
