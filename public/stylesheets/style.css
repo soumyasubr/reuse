@@ -5,16 +5,19 @@ html, body {
     -webkit-user-select: none;
 }
 
+
 body * {
   font-family: 'Roboto', sans-serif;
+  font-weight: 300;
 }
 
-h1, h2 {
+h1, h2, h3 {
 	font-family: 'Roboto Slab', 'Helvetica Neue', sans-serif !important;
 	line-height: 100%;
 	font-weight: 100;
 	text-align: center;
 	margin: 40px 20px 20px 20px;
+
 }
 
 h1 {
@@ -22,13 +25,32 @@ h1 {
 }
 
 h2 {
-	font-size: 1.6em;	
+	/*font-size: 3em;	*/
+	/*font-weight: 300;*/
+}
+
+h2 span {
+	font-weight: 100;
+}
+
+h3 {
+	font-size: 1.6em;		
 }
 
 p {
 	color: #a9a9a9;
+	font-weight: 300;
+	font-size: 0.9em;
+	padding: 6px;
 }
 
+.scene {
+	display: none;
+}
+
+#word {
+	letter-spacing: 8px;
+}
 
 input[type="password"],
 input[type="datetime"],
@@ -70,8 +92,14 @@ input.holo[type='number']:focus {
 	background-size: 1px 8px, 1px 1px, 1px 8px;	
 } 
 
+#wait-for-players,
+#game-screen, 
+{
+
+}
+
 .wrapper{
-    overflow:hidden;
+    /*overflow:hidden;*/
     position: relative;
     height: 100%;
     width: 100%;
@@ -93,7 +121,9 @@ input.holo[type='number']:focus {
 	z-index: 1;	
 }
 
-
+.light-color {
+	color: #a9a9a9;
+}
 .error {
 	color: #C20000;
 }
@@ -105,11 +135,12 @@ input.holo[type='number']:focus {
     margin: 0px auto 0px auto;
 
 }
-
 table {
 	display: table;
     width: 100%;
 }
+
+/*
 table thead, table tbody {
     float: left;
     width: 100%;
@@ -124,12 +155,31 @@ table tr {
     text-align: left;
 }
 table th, table td {
-    /*width: 25%;*/
+    width: 50px;
     text-align: center;
 }
+*/
+th {
+	text-align: left;
+} 
+
+th, td {
+	padding: 10px;
+    /*width: 50px;*/
+    /*text-align: center;*/
+}
+
+
 
 ul {
 	list-style: none;
+}
+
+.center {
+	text-align: center;
+}
+.right {
+	text-align: right;
 }
 
 .ghost-button {
@@ -153,12 +203,18 @@ ul {
  	border: 1px solid #DADADA;
 }
 
+#timer {
+	color: #AAA;
+	font-size: 1.2em;
+}
+
 #numPlayers-input {
 	display: none;
 }
 
 #create-join-btn-container,
-#start-btn-container {
+#start-btn-container,
+#pin-ban-container {
 	text-align: center;
 }
 
@@ -168,11 +224,25 @@ ul {
 	margin-right: 5px;
 }
 
+#pin-ban-container > * {
+	margin: 0px 5px 0px 5px;
+	font-weight: 300;
+}
+
 #room-input {
 	width: 120px;
 	border-left: 4px solid white;
 	border-right: 4px solid white;
 }
+
+#letter-input {
+	width: 160px;
+	font-size: 0.9em;		
+	border-left: 4px solid white;
+	border-right: 4px solid white;
+}
+  
+/*#word-input {}*/
 
 #create-join {
 	position:absolute;
@@ -196,6 +266,9 @@ ul {
 	/*z-index: 0;*/
 }
 
+#submit-btn {
+
+}
 
 @media screen and (min-width: 64em) {
 	.ghost-button:hover {

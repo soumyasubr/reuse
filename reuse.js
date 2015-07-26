@@ -1,5 +1,6 @@
 // Global variables
 var fs = require('fs');
+var config = JSON.parse(fs.readFileSync('config.json','utf-8'));
 var io,
 	gameSocket,
 	games = {}, // game state and player information, indexed by roomId
@@ -7,22 +8,22 @@ var io,
 	wordList = [], // list of words to validate against
 	rejectList = []; // list of words to avoid
 
-var config = JSON.parse(fs.readFileSync('config.json','utf-8'));
-
 
 /* Load word lists for valid words and offensive words 
  * '2of12inf' file from http://wordlist.aspell.net/12dicts/ is used to identify valid words.
  */
 function loadWordLists() {
-//	var fs = require('fs');
 	try {
-		var validWords = fs.readFileSync('2of12inf.txt', 'utf-8');
-		wordList = validWords.toString().split('\n').map(function(str) { //create array and trim each element
-			return str.replace('%','').trim(); // remove % and newline from words
+		// Load valid words
+		var validWords = fs.readFileSync(config.VALID_WORDS, 'utf-8');
+		wordList = validWords.toString().split('\n').map(function(str) { //create array
+			return str.replace('%','').trim(); // remove %, space and newline from each word
 		});
-		var rejectedWords = fs.readFileSync('rejectedWords.txt', 'utf-8');
-		rejectList = rejectedWords.toString().split('\n').map(function(str) { //create array and trim each element
-			return str.trim(); // remove newline from words
+		
+		// Load rejected words
+		var rejectedWords = fs.readFileSync(config.REJECTED_WORDS, 'utf-8');
+		rejectList = rejectedWords.toString().split('\n').map(function(str) { //create array
+			return str.trim(); // remove newline from each word
 		});
 		console.log('Dictionary successfully loaded');
 	}
@@ -60,13 +61,13 @@ function createNewGame(data) {
 
 	// Store room and client data as in-memory objects
 	games[roomId] = {};
-	games[roomId].numPlayers = data.numPlayers; 	//same as games[roomId]={numPlayers: data.numPlayers };
-	games[roomId].started = false;
+	games[roomId].numPlayers = data.numPlayers; 	
+	games[roomId].state = '';
 	games[roomId].players = {};
 	games[roomId].players[id] = {
 					name: data.playerName,
 					turn: 0,
-					score: 0,
+					totalScore: 0,
 					pinBanUsed: 0
 	};
 	roomLookup[id] = roomId;
@@ -74,7 +75,7 @@ function createNewGame(data) {
 	data.roomId = roomId;
 	data.numPlayersInRoom = 1;
 	
-    // Emit event to client that they have joined a room
+    // Notify client that they have joined a room
     io.sockets.to(id).emit('playerJoinedRoom', data);  
     console.log('playerJoinedRoom', data.roomId);
 }
@@ -92,28 +93,28 @@ function joinExistingGame(data) {
     	data.numPlayers = games[data.roomId].numPlayers; // Get number of players needed for game
 
     	// If room is not full
-    	if(numPlayersInRoom < data.numPlayers && !games[data.roomId].started) {
+    	if(numPlayersInRoom < data.numPlayers && games[data.roomId].state !== 'started') {
             this.join(data.roomId.toString()); // Join room
             data.numPlayersInRoom = Object.keys(room).length;
-            data.mySocketId = this.id; //change to data.id
+            data.id = this.id;
             
         	// Store client data as in-memory objects       
         	games[data.roomId].players[this.id] = {
         			name: data.playerName,
         			turn: 0,
-        			score: 0,
+        			totalScore: 0,
         			pinBanUsed: 0
         	};
         	roomLookup[this.id] = data.roomId;
         	
-            // Emit an event notifying all clients in this room that a player has joined
+            // Notify all clients in this room that a player has joined
             io.sockets.to(data.roomId).emit('playerJoinedRoom', data);  
             console.log('playerJoinedRoom', data.roomId);
     	}
     	
     	// If room is full OR game has already started
     	else{
-    		// Emit an event only to requesting client that room is full
+    		// Notify requesting client that room is full
     		io.sockets.to(this.id).emit('error', {message: "Cannot join Room "+ data.roomId + 
     			" as game has already started. Create new game or join a different game."});  
     	}            
@@ -121,7 +122,7 @@ function joinExistingGame(data) {
 	
     // If room does not exist
     else {
-    	// Emit an event only to requesting client that room does not exist
+    	// Notify requesting client that room does not exist
     	io.sockets.to(this.id).emit('error',{message: "Room "+ data.roomId + " does not exist."} );
     }
 }
@@ -132,12 +133,14 @@ function joinExistingGame(data) {
  * Offensive words are rejected 
  */
 function randomWord(){
-//	var fs = require('fs');
 	var simpleWordList;
+	var word;
+	
 	try {
-		var simpleWords = fs.readFileSync('3esl.txt', 'utf-8');
-		simpleWordList = simpleWords.toString().split('\n').map(function(str) { //create array and trim each element
-			return str.trim();
+		// Load simple words
+		var simpleWords = fs.readFileSync(config.SIMPLE_WORDS, 'utf-8');
+		simpleWordList = simpleWords.toString().split('\n').map(function(str) { //create array
+			return str.trim(); // remove space and newline from each word
 		});
 		console.log('Simple word list successfully loaded');
 	}
@@ -146,16 +149,16 @@ function randomWord(){
         console.log('Error loading simple word list. ' + err);
         return;
 	}
-	var word;
+	
+	// Generate a random word that matches the criteria
 	do {
 		word = simpleWordList[parseInt(Math.random() * simpleWordList.length)];
-		//console.log(word);
 	}
 	while (	word === undefined || 
-			(!/^[a-z]+$/.test(word)) || // check for anything except lower case characters
-			word.length > 6 || // word length between 3 and 6
-			word.length < 3 ||
-			rejectList.indexOf(word.toUpperCase) > -1); // check for rejected word
+			(!/^[a-z]+$/.test(word)) || // contains only lower case characters (filter out hyphenated words, abbreviations etc.)
+			word.length < 3 || 			// word length between 3..
+			word.length > 6 || 			// .. and 6
+			rejectList.indexOf(word) > -1); // check for rejected word
 	return word;
 }
 
@@ -165,20 +168,21 @@ function randomWord(){
  * 		Identifies first player  
  * @param: roomId
  */
-function startGame(roomId){
+function firstTurn(roomId){
     var keys = Object.keys(games[roomId].players); // Get list of socket IDs in the room
     var data = {
     		roomId: roomId,
-    		nextPlayer: keys[0], // nextPlayerId
+    		nextPlayerId: keys[0], 
     		nextPlayerName: games[roomId].players[keys[0]].name,
     		currWord: randomWord().toUpperCase(),
     		pinOrBan: '',
     		letter: '',
     		playerName: '-',
-    		score: '-'
+    		currScore: '-',
+    		totalScore: '-'
     };
-	games[roomId].players[data.nextPlayer].turn++;
-	games[roomId].started = true;
+	games[roomId].players[data.nextPlayerId].turn++;
+	games[roomId].state = 'started';
     io.sockets.to(roomId).emit('newWord', data);
 }
 
@@ -209,15 +213,6 @@ function isFragmentReused(string1, string2) {
 	while (!isReused && i<shortWord.length);
 	return isReused;
 }
-
-
-/*function isEnglishWord(word){
-	var ret;
-	ret = 	wordList.indexOf(word.toLowerCase) > -1 &&
-			rejectList.indexOf(word.toLowerCase) === -1;
-	
-	return ret;
-}*/
 
 
 /* Checks if the player's response is valid.
@@ -262,7 +257,7 @@ function isValidWord(data) {
 	//TODO: reject list for random word generation should be different from logic for valid word
 	if (ret.value) {
 		if (wordList.indexOf(data.currWord.toLowerCase()) === -1) { // not in word list
-			ret.message = data.currWord + ' is not in our dictionary.';
+			ret.message = "Can't find " + data.currWord + ' in our dictionary.';
 			ret.value = false;
 		}
 		// if word is in word list, check if it is a rejected word
@@ -316,27 +311,54 @@ function computeWinner(roomId){
 	var id;
 	for (id in players) {
 		if (players.hasOwnProperty(id)) {
-			score.push(players[id].score); // Create an array that only contains the score
+			score.push(players[id].totalScore); // Create an array that only contains the score
 		}
 	}
 	var maxScore = Math.max.apply(Math, score); // Calculate highest score
 
-	// Identify player(s) with highest total score
+	// Identify player(s) with highest score
 	for (id in players) {
 		if (players.hasOwnProperty(id)) {
-			if (players[id].score === maxScore){
+			if (players[id].totalScore === maxScore){
 				winner.push({
 					id: id, 
 					name: players[id].name, 
-					score: players[id].score
+					totalScore: players[id].totalScore
 				}); 
 			}
 		}
 	}
-	console.log('winner:', winner);
 	return winner;
 }
 
+
+/* Return socket ID of next player
+ * @param: currPlayerId
+*/
+function identifyNextPlayer(currPlayerId) {
+	var keys = Object.keys(games[roomLookup[currPlayerId]].players); // Get list of socket IDs in the room
+	var idx = (keys.indexOf(currPlayerId) + 1) % keys.length; // index of next player
+    return keys[idx]; // ID of next player
+}
+
+
+/* Check if game is over
+ * @param: nextPlayerId
+ */
+function checkGameOver(nextPlayerId) {
+	var roomId = roomLookup[nextPlayerId];
+    var turn = ++games[roomId].players[nextPlayerId].turn; // Update turn number
+	console.log('next player:', nextPlayerId, '\ndata:', games[roomId].players);
+	if (turn > config.MAX_TURNS) { // If all turns have been played
+		var winner = computeWinner(roomId); // get winner info
+		console.log('winner:', winner);
+		games[roomId].state = 'ended';
+		//delete games[roomId]; // clean up array
+		
+		// Notify clients that game is over
+		io.sockets.to(roomId).emit('gameOver', winner); 
+	}
+}
 
 /* Prepares for the next round if previous player's response is valid.
  * 		Send next word, scores and other related data to all players.
@@ -345,63 +367,80 @@ function computeWinner(roomId){
  * @param: data - currWord, prevWord, pinOrBan, letter, nextPinOrBan, nextLetter
  */
 function nextTurn(data) {
-	var id = this.id;
-	var roomId = roomLookup[id];
+	data.id = this.id;
+	var roomId = roomLookup[data.id];
 	var valid;
 	
 	// If no room found for client
 	if (roomId === undefined) {
-		io.sockets.to(id).emit('error', {message: 'Unable to communicate with room.'});
-		return false;
+		io.sockets.to(data.id).emit('error', {message: 'Unable to communicate with room.'});
+		return;
 	}
 	
-	// If player response is invalid
+	// Notify player whether response is valid or invalid
 	valid = isValidWord(data);
-	if (!valid.value) {
-		io.sockets.to(id).emit('error', {message: valid.message});
-		return false;
+	if (valid.value) {
+//		io.sockets.to(data.id).emit('responseAccepted');
+	}
+	else {
+		io.sockets.to(data.id).emit('error', {message: valid.message});
+		return;
 	}
 	
 	//If word is valid
-	data.playerName = games[roomId].players[id].name; // Name of current player
+	data.playerName = games[roomId].players[data.id].name; // Name of current player
 	
-	// Identify next player
-	var keys = Object.keys(games[roomId].players); // Get list of socket IDs in the room
-	var i = (keys.indexOf(id) + 1) % keys.length; // index of next player
-	data.nextPlayer = keys[i]; //nextPlayerId ID of next player
-	data.nextPlayerName = games[roomId].players[keys[i]].name; // Name of next player
+	// Get next player info
+	data.nextPlayerId = identifyNextPlayer(data.id);
+	data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player
+    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
 	
 	// Identify reused fragment and score
 	data.reusedFragment = reusedFragment(data.currWord, data.prevWord);
-    data.score = 10 * data.reusedFragment.length; //currScore
-    games[roomId].players[id].score += data.score; //update running total ---- change var names to totalScore and currScore 
-    data.totalScore = games[roomId].players[id].score; //totalScore
+    data.currScore = 10 * data.reusedFragment.length; // score for this turn
+    games[roomId].players[data.id].totalScore += data.currScore; //update total score
+    data.totalScore = games[roomId].players[data.id].totalScore; 
     
     // Assign pin/ ban for next turn
     data.pinOrBan = data.nextPinOrBan; 
     data.letter = data.nextLetter;
     if (data.nextPinOrBan === 'pin' || data.nextPinOrBan === 'ban') {
-    	games[roomId].players[id].pinBanUsed++; //update number of pins/ bans used 
+    	games[roomId].players[data.id].pinBanUsed++; //update number of pins/ bans used 
     }
-    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayer].pinBanUsed; // number of pins/ bans left for next player
-    console.log('nextPinBanLeft', data.nextPlayer, data.nextPinBanLeft);
     
     // Remove unnecessary properties
     delete data.prevWord; 
     delete data.nextPinOrBan;
     delete data.nextLetter;
 
-	// Notify client to prepare for next player's turn
+	// Notify clients to prepare for next player's turn
     io.sockets.to(roomId).emit('newWord', data);
 	
-    // Determine if game is over
-    var turn = ++games[roomId].players[data.nextPlayer].turn; // Update turn number
-	console.log('end of turn', games[roomId].players);
-	if (turn > config.MAX_TURNS) { // If all turns have been played
-		data.winner = computeWinner(roomId);
-		delete games[roomId];
-		io.sockets.to(roomId).emit('gameOver', data);
-	}
+    // Check if game is over
+    checkGameOver(data.nextPlayerId);
+}
+
+
+/* Notify clients to end current player's turn and pass turn to next player.
+ * @param: id - Socket ID of current player
+ */
+function passTurn(id) {
+	id = this.id || id; //either use id value passed to function or id of calling socket
+	var roomId = roomLookup[id];
+	var data = {};
+	
+	// Get next player info
+	data.nextPlayerId = identifyNextPlayer(id); // Id of next player
+	data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player
+    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
+        
+    // Notify clients to activate player
+    io.sockets.to(roomId).emit('activateNextPlayer', data);
+    
+    // Check if game is over
+    if (games[roomId].state !== 'ended') {
+    	checkGameOver(data.nextPlayerId);  
+    }
 }
 
 
@@ -419,37 +458,41 @@ function disconnect() {
 		// If game is not over
 		if (games[roomId] !== undefined) {
 			var players = games[roomId].players; // Get list of players in room
-			var playerName = players[id].name; // Name of disconnected player
 			var turns = [];
-			var nextPlayerId;
 			var key;
+			var data = {};
 
 			// Notify other players in the room that somebody left
-			io.sockets.to(roomId).emit('playerLeftRoom', playerName);
+			io.sockets.to(roomId).emit('playerLeftRoom', players[id].name);
 		
 			// Determine whose turn it is
 			for (key in players) {
 				if (players.hasOwnProperty(key)) {
-					turns.push(players[key].turn);
+					turns.push(players[key].turn); // create an array with turn #s
 				}
 			}
-			var maxTurn = Math.max.apply(Math, turns); // Find the highest turn
+			var maxTurn = Math.max.apply(Math, turns); // Find the highest turn #
 			
 			for (key in players) {
 				if (players[key].turn === maxTurn) { // Identify last player that matches maxTurn
-					nextPlayerId = key;
+					break;
 				}
 			}
 		
-			// If disconnected player has the next turn
-			if (nextPlayerId === id) {
-				console.log('Turn belongs to disconnected player');
-				//TODO: Expire the timer for this player
+			// If the player who left had the active turn, pass turn to next player
+			if (key === id) {
+				passTurn(id);
 			}
 			
 			// Delete player data
-			delete games[roomId].players[id];
-			delete roomLookup[id];
+			try {
+				delete games[roomId].players[id];
+				delete roomLookup[id];
+			}
+			catch (err) {
+		        console.log('Could not delete from array: ' + err);
+			}
+			
 		}
 	}
 }
@@ -461,17 +504,18 @@ exports.initGame = function(sio, socket) {
     gameSocket = socket;
     gameSocket.on('createNewGame', createNewGame);
     gameSocket.on('joinExistingGame', joinExistingGame);
-    gameSocket.on('startGame', startGame);
+    gameSocket.on('startGame', firstTurn);
     gameSocket.on('nextTurn', nextTurn);
+    gameSocket.on('passTurn', passTurn);
     gameSocket.on('disconnect', disconnect);
     gameSocket.on('error', function (err) { console.error(err.stack);});
     
     // Load dictionary if not already loaded
 	if (wordList.length === 0 || rejectList.length === 0) {
 		loadWordLists();
-		//console.log('check:', randomWord());
+		//console.log('Random word test:', randomWord());
 	}
-	console.log('checking random word:', randomWord());
+	console.log('testing random word:', randomWord());
 };
 
 
