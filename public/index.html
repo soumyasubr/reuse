@@ -3,11 +3,11 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1 maximum-scale=1.0, user-scalable=0">
 		
-		<title>Reuse</title>
+		<title>reuse</title>
 		
 		<link href="/stylesheets/purecss/build/pure-min.css" rel="stylesheet" type="text/css">
 		<link href="/stylesheets/purecss/build/grids-responsive-min.css" rel="stylesheet" type="text/css">
-		<link href="/stylesheets/animations.css" rel="stylesheet" type="text/css">
+		<!-- <link href="/stylesheets/animations.css" rel="stylesheet" type="text/css"> -->
 		<link href="/stylesheets/style.css" rel="stylesheet" type="text/css">
 		<link href="http://fonts.googleapis.com/css?family=Roboto+Slab:300,100" rel="stylesheet" type="text/css">
 		<link href="http://fonts.googleapis.com/css?family=Roboto:100,300,400" rel="stylesheet" type="text/css">
@@ -16,92 +16,108 @@
 
 	<body ontouchstart="">
 		<div class="wrapper">
-
+			<label id="timer">1:00</label> <!-- Make timer visible always for testing purposes -->
+			
 			<!-- - - - - - - - - - - - - - - - - - - - -  -->
 	    	<!-- Home view i.e. Create (or) Join 		  -->
 	    	<!-- - - - - - - - - - - - - - - - - - - - -  -->
 
-			<div id="create-join" class="current-view scene">
-				<div class="pure-u-1">
-					<h1>reuse</h1>
-				</div>
-				<!-- <form id="room-form" action=""> -->
-					<div class="pure-g">
-						<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-3"> </div>
-						<div class="pure-u-1 pure-u-md-3-5 pure-u-lg-1-3">
-							<p class="status"></p>
-							<input id='name-input' type="text" placeholder="Your name?" class='holo side-borders'></input>
+			<div id="home" class="scene">
+<!-- 				<div class="pure-u-1"> -->
+<!-- 					<h1>reuse</h1> -->
+<!-- 				</div> -->
+				
+				<!-- Divide into 3 columns (divs). Place game content only in column 2. -->
+				<div class="pure-g">
+					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-3"> </div>
+					<div class="pure-u-1 pure-u-md-3-5 pure-u-lg-1-3">
+<!-- 						<h1><span class="reused">re</span>use</h1> -->
+						<h1>reuse</h1>
+						<p class="status"></p>
+						<input id='name-input' type="text" placeholder="Your name?" class='holo side-borders'></input>
+						<div id="create-join-btn-container" class="margin-top">
+							<button id="create-btn" type="button" class="ghost-button">Create</button>
+							<p>(or)</p>	 
+							<input id='room-input' type="number" min="0" inputmode="numeric" pattern="[0-9]*" placeholder="Game #" class='holo'></input>
+							<button id="join-btn" type="button" class="ghost-button" disabled='disabled'>Join</button>
 						</div>
-						<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-3"> </div>
 					</div>
+					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-3"> </div>
+				</div>
 					
 					<!-- dropdown hidden -->
-					<select id="numPlayers-input">
-						<option value="2">2 players</option>
-						<option value="3">3 players</option>
-						<option value="4" selected="selected">4 players</option>
-					</select>
+<!-- 					<select id="numPlayers-input"> -->
+<!-- 						<option value="2">2 players</option> -->
+<!-- 						<option value="3">3 players</option> -->
+<!-- 						<option value="4" selected="selected">4 players</option> -->
+<!-- 					</select> -->
 					<!-- end dropdown -->
 
-					<div class="pure-g">
-						<div class="pure-u-1 pure-u-md-1-5"> </div>
-						<div class="pure-u-1 pure-u-md-3-5">
-							<div id="create-join-btn-container" class="margin-top">
-								<button id="create-btn" type="button" class="ghost-button">Create</button>
-								<p>(or)</p>	 
-								<input id='room-input' type="number" min="0" inputmode="numeric" pattern="[0-9]*" placeholder="Room #" class='holo'></input>
-								<button id="join-btn" type="button" class="ghost-button" disabled='disabled'>Join</button>
-							</div>
-						</div>
-						<div class="pure-u-1 pure-u-md-1-5"> </div>
-					</div>
-				<!-- </form> -->
-	    	</div>
+<!-- 					<div class="pure-g"> -->
+<!-- 						<div class="pure-u-1 pure-u-md-1-5"> </div> -->
+<!-- 						<div class="pure-u-1 pure-u-md-3-5"> -->
+<!-- 							<div id="create-join-btn-container" class="margin-top"> -->
+<!-- 								<button id="create-btn" type="button" class="ghost-button">Create</button> -->
+<!-- 								<p>(or)</p>	  -->
+<!-- 								<input id='room-input' type="number" min="0" inputmode="numeric" pattern="[0-9]*" placeholder="Game ID" class='holo'></input> -->
+<!-- 								<button id="join-btn" type="button" class="ghost-button" disabled='disabled'>Join</button> -->
+<!-- 							</div> -->
+<!-- 						</div> -->
+<!-- 						<div class="pure-u-1 pure-u-md-1-5"> </div> -->
+<!-- 					</div> -->
+
+	    	</div> 
 
 			<!-- - - - - - - - - - - - - - - - - - - - -  -->
 	    	<!-- Lobby view i.e. Wait for players to join -->
 	    	<!-- - - - - - - - - - - - - - - - - - - - -  -->
 
-	    	<div id="wait-for-players" class="scene"> <!-- use invisible-layer for doing transition anim -->
+	    	<div id="lobby" class="scene"> 
 	    		
 	    		<!-- heading -->
-	    		<div class="pure-u-1">
-					<h2>Waiting for players...</h2>
-					<h3></h3>
-				</div>
+<!-- 	    		<div class="pure-u-1"> -->
+<!-- 					<h2>Waiting for players...</h2> -->
+<!-- 					<h3></h3> -->
+<!-- 				</div> -->
 				
-				<!-- status -->
 				<div class="pure-g">
-					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-3"> </div>
-						<div class="pure-u-1 pure-u-md-3-5 pure-u-lg-1-3">
+					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-5"> </div>
+						<div class="pure-u-1 pure-u-md-3-5 pure-u-lg-3-5">
+<!-- 						<div class="pure-u-1 pure-u-md-3-5 pure-u-lg-1-3"> -->
+							<h1>reuse</h1>
+							<h3></h3>
 							<p class="status"></p>
 						</div>
-					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-3"> </div>
+					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-5"> </div>
 				</div>
 				
 				<!-- players list -->
 				<div class="pure-g">
 			    	<div class="pure-u-1-5 pure-u-md-1-3"></div>
-				    <div class="pure-u-3-5 pure-u-md-1-3">	
+					<div class="pure-u-3-5 pure-u-md-1-3">	
 						<table id="players-list" class="pure-table pure-table-horizontal pure-table-striped">
-						    <thead>
-						        <tr>
-						            <th>Players joined</th>
-						        </tr>
-						    </thead>
-						    <tbody/>
-						  </table>
-				   </div>
+							<thead>
+								<tr>
+									<th>Players in room</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td>Show list of players here..</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
 					<div class="pure-u-1-5 pure-u-md-1-3"></div>
 				</div>
 
-				<!-- start button -->
+				<!-- start and back buttons -->
 				<div class="pure-g">
 					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-3"> </div>
 						<div class="pure-u-1 pure-u-md-3-5 pure-u-lg-1-3">
 							<div id="start-btn-container" class="margin-top">
 								<button id="back-btn" type="button" class="ghost-button">Home</button>
-								<button id="start-btn" type="button" class="ghost-button" disabled="disabled">Start Now</button>
+								<button id="start-btn" type="button" class="ghost-button" disabled="disabled">Start</button>
 							</div>
 						</div>
 					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-3"> </div>
@@ -112,47 +128,47 @@
 	    	<!-- Game view 								  -->
 	    	<!-- - - - - - - - - - - - - - - - - - - - -  -->
 
-			<!-- TODO: Hide game-screen div by default using CSS rather than inline - style="display: none;" -->
 			<div id="game-screen" class="scene">
 
 				<!-- heading -->
 	    		<div class="pure-u-1">
 	    			<!-- <label id="timer" class="center">1:00</label> -->
-	    			<h3 id="timer" class="center">1:00</h3>
-					<h2 id="word">DRINKINGINGINGING</h2>
+	    			<!-- <h3 id="timer" class="center">1:00</h3> -->
+	    			<p class="status center"></p>
+					<h2 id="word">CREAMER</h2>
 				</div>
 				
 				<!-- status -->
 				<div class="pure-g">
-					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-3"> </div>
-						<div class="pure-u-1 pure-u-md-3-5 pure-u-lg-1-3">
-							
-							<!-- <p>Reuse as many continuous letters as possible from the word below to make a new word</p> -->
-							<!-- <p>Reuse continuous letters from above word to make a new word</p> -->
+					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-5"> </div>
+					<div class="pure-u-1 pure-u-md-3-5 pure-u-lg-3-5">
+			
+						<!-- <p>Reuse as many continuous letters as possible from the word below to make a new word</p> -->
+						<!-- <p>Reuse continuous letters from above word to make a new word</p> -->
+												
+						<input id='word-input' type="text" placeholder="Enter your word" class='holo side-borders center margin-top'></input>
 
-							<input id='word-input' type="text" placeholder="Enter your word" class='holo side-borders center margin-top'></input>
-
-							<!-- <p class="margin-top">Enter letter to pin/ ban..</p> -->
-							<div id="pin-ban-container" class="margin-top">
-								<input id="pin-rdo" type="radio" class="pin-ban-rdo" name="pin-ban" value="pin"><span>Pin</span>
-								<input id="ban-rdo" type="radio" class="pin-ban-rdo" name="pin-ban" value="ban"><span>Ban</span>
-								<span id="pin-bans-left" class="light-color">(3 left)</span>
-								
-									
-								<input id="letter-input" type="text" class="holo" placeholder="Enter letter to pin/ban"/> 
-							</div>
+						<!-- <p class="margin-top">Enter letter to pin/ ban..</p> -->
+						<div id="pin-ban-container" class="margin-top">
+							<input id="pin-rdo" type="radio" class="pin-ban-rdo" name="pin-ban" value="pin"><span class="pin">Pin</span>
+							<input id="ban-rdo" type="radio" class="pin-ban-rdo" name="pin-ban" value="ban"><span class="ban">Ban</span>
+							<span id="pin-bans-left" class="light-color">(# left)</span>
+							<input id="letter-input" type="text" class="holo" placeholder="Enter letter to pin/ban"/> 
+						</div>
 
 
 
-							<!-- <p class="status"></p> -->
-							<p id="message2" class="status center">Message goes here</p>
+						<!-- <p class="status"></p> -->
+						<!-- <p id="message2" class="status center">Message goes here</p> -->
+<!-- 							<p class="status center"></p> -->
 
-							<div id="submit-btn-container" class="center margin-top">
-								<button id="submit-btn" class="ghost-button">Submit</button>
-							</div>
+						<div id="submit-btn-container" class="center margin-top">
+							<button id="submit-btn" class="ghost-button">Submit</button>
+						</div>
 
 							<!-- <table id="players-list" class="pure-table pure-table-horizontal pure-table-striped"> -->
-							<table id="players-list" class="margin-top">
+							<!-- <table id="players-list" class="margin-top"> -->
+							<table class="margin-top">
 							    <thead>
 							        <tr>
 							            <th>Recent Words</th>
@@ -196,24 +212,23 @@
 	        
 							
 						</div>
-					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-3"> </div>
+					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-5"> </div>
 				</div>
 
 				<ul id = "word-list">
-					<li>Word</li>
-					<li>Score</li>
 				</ul>		
 			</div>
 
 			<div id="game-over" class="scene">
 				<h3>Game Over!</h3>
 				<!-- <h4 id="message3">Message goes here</h4> -->
-				<!-- <ul id = "word-list2"></ul> -->
+				<ul id = "word-list2"></ul>
 
 				<div class="pure-g">
 					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-3"> </div>
 					<div class="pure-u-1 pure-u-md-3-5 pure-u-lg-1-3">	
-						<table id="players-list" class="margin-top">
+						<!-- <table id="players-list" class="margin-top"> -->
+						<table class="margin-top">
 						    <thead>
 						        <tr>
 						            <th>Recent Words</th>

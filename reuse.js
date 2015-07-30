@@ -9,8 +9,9 @@ var io,
 	rejectList = []; // list of words to avoid
 
 
-/* Load word lists for valid words and offensive words 
- * '2of12inf' file from http://wordlist.aspell.net/12dicts/ is used to identify valid words.
+/** Load word lists for valid words and offensive words.
+ * 	'2of12inf' file from http://wordlist.aspell.net/12dicts/ is used to identify valid words. 
+ * 	Word list from bannedwordlist.com was used as starting point to identify rejected words.
  */
 function loadWordLists() {
 	try {
@@ -23,114 +24,132 @@ function loadWordLists() {
 		// Load rejected words
 		var rejectedWords = fs.readFileSync(config.REJECTED_WORDS, 'utf-8');
 		rejectList = rejectedWords.toString().split('\n').map(function(str) { //create array
-			return str.trim(); // remove newline from each word
+			return str.trim(); // remove space and newline from each word
 		});
 		console.log('Dictionary successfully loaded');
 	}
 	catch (err) {
-		io.sockets.emit('error', {message: 'Error loading dictionary'});
+		io.sockets.emit('error', {
+			processStep: 'init',
+			message: 'Error loading dictionary'
+		});
         console.log('Error loading dictionary. ' + err);
 	}
 }
 
 
-/* Creates a new room ID and places client in the room
- * @param: data - playerName, numPlayers
+/** 
+ * Creates a new room ID and places client in room
+ *  @param: playerName
  */
-function createNewGame(data) {
+function createNewGame(playerName) {
 	var roomId,
 	 	room,
 	 	id = this.id;
 	
-	// Check if client is requesting a game for more than MAX_PLAYERS
-	// This is checked on the server even though the client already prevents this.
-	if (data.numPlayers > config.MAX_PLAYERS) {
-		io.sockets.to(id).emit('error', {message: "Maximum number of players: " + config.MAX_PLAYERS}); 
-		return false;
-	}
-	
 	// Create a unique room ID
 	do {
-		roomId = parseInt(Math.random() * 1000); // Generate random roomId
+		roomId = parseInt(Math.random() * 100); // Generate random roomId
 		room = gameSocket.adapter.rooms[roomId]; // Array of clients in room. Should return nothing if room doesn't exist.
 	}
-	while (room !== undefined); // Check if room already exists
+	while (	room !== undefined || // Check if room already exists
+			roomId === 0); // Room Id should be non-zero
 		
-	// Place client in room
-	this.join(roomId.toString()); 
+	this.join(roomId.toString()); // Place client in room
 
 	// Store room and client data as in-memory objects
 	games[roomId] = {};
-	games[roomId].numPlayers = data.numPlayers; 	
-	games[roomId].state = '';
+	games[roomId].state = 'waiting';
 	games[roomId].players = {};
 	games[roomId].players[id] = {
-					name: data.playerName,
+					name: playerName,
 					turn: 0,
 					totalScore: 0,
 					pinBanUsed: 0
 	};
 	roomLookup[id] = roomId;
 	
-	data.roomId = roomId;
-	data.numPlayersInRoom = 1;
+	var data = {
+			roomId: roomId,
+			playerName: playerName,
+			playersArray: [],
+			numPlayersInRoom: 1
+	};
+	data.playersArray.push({name: playerName});
 	
     // Notify client that they have joined a room
     io.sockets.to(id).emit('playerJoinedRoom', data);  
-    console.log('playerJoinedRoom', data.roomId);
+    console.log(playerName, 'created Game', roomId);
 }
 
 
-/* Joins the specified room if available
- * @param: data - playerName, roomId 
+/** 
+ *  Joins the specified room if available
+ * 	@param: data - playerName, roomId 
  */
 function joinExistingGame(data) {
 	var room = gameSocket.adapter.rooms[data.roomId]; // Get array of clients in room
 	
-	// If room exists
-	if(room !== undefined) {
-    	var numPlayersInRoom = Object.keys(room).length; // Get number of clients in room
-    	data.numPlayers = games[data.roomId].numPlayers; // Get number of players needed for game
-
-    	// If room is not full
-    	if(numPlayersInRoom < data.numPlayers && games[data.roomId].state !== 'started') {
-            this.join(data.roomId.toString()); // Join room
-            data.numPlayersInRoom = Object.keys(room).length;
-            data.id = this.id;
-            
-        	// Store client data as in-memory objects       
-        	games[data.roomId].players[this.id] = {
-        			name: data.playerName,
-        			turn: 0,
-        			totalScore: 0,
-        			pinBanUsed: 0
-        	};
-        	roomLookup[this.id] = data.roomId;
-        	
-            // Notify all clients in this room that a player has joined
-            io.sockets.to(data.roomId).emit('playerJoinedRoom', data);  
-            console.log('playerJoinedRoom', data.roomId);
-    	}
+	if (room == undefined) { //If room does not exist
+		// Notify client that room does not exist
+		io.sockets.to(this.id).emit('error', {
+				processStep: 'join',
+				message: 'Game ' + data.roomId + ' does not exist.'
+		} );
+		return;
+	}
     	
-    	// If room is full OR game has already started
-    	else{
-    		// Notify requesting client that room is full
-    		io.sockets.to(this.id).emit('error', {message: "Cannot join Room "+ data.roomId + 
-    			" as game has already started. Create new game or join a different game."});  
-    	}            
-    }
+	if (games[data.roomId].state !== 'waiting') { // If game is not accepting players
+		// Notify client that game has started
+		io.sockets.to(this.id).emit('error', {
+				processStep: 'join',
+				message: " Game "+ data.roomId + 
+					' has already started. Create new game or join a different game.'
+		});  
+		return;
+	}
 	
-    // If room does not exist
-    else {
-    	// Notify requesting client that room does not exist
-    	io.sockets.to(this.id).emit('error',{message: "Room "+ data.roomId + " does not exist."} );
-    }
+	if (Object.keys(room).length >= config.MAX_PLAYERS) { //If # clients in room > max permitted
+		// Notify requesting client that room is full
+		io.sockets.to(this.id).emit('error', {
+				processStep: 'join',
+				message: 'Game ' + data.roomId + 
+					' is full. Create new game or join a different game.'
+		});  
+		return;
+	}
+    	
+    this.join(data.roomId.toString()); // Place client in room
+    data.numPlayersInRoom = Object.keys(room).length; //Recalculate # players in room
+    data.id = this.id;
+            
+	// Store client data as in-memory objects       
+	games[data.roomId].players[data.id] = {
+			name: data.playerName,
+			turn: 0,
+			totalScore: 0,
+			pinBanUsed: 0
+	};
+	roomLookup[data.id] = data.roomId;
+	
+//	var players = games[data.roomId].players; 
+	data.playersArray = [];
+	for (var id in games[data.roomId].players) { //players info
+			data.playersArray.push({ //Create array with player ids and names
+				id: id,
+				name: games[data.roomId].players[id].name
+			});
+	}
+	
+    // Notify all clients in this room that a player has joined
+    io.sockets.to(data.roomId).emit('playerJoinedRoom', data);  
+    console.log(data.playerName, 'joined Game', data.roomId);
 }
 
 
-/* Generate a random word that is no longer than 6 letters.
- * 3esl' file from http://wordlist.aspell.net/12dicts/ is used to identify simple words.
- * Offensive words are rejected 
+/**
+ * Generate a random word that is no longer than 7 letters.
+ * 5th grade word list from http://www.ideal-group.org/dictionary/ (p-5_ok.txt) is used.
  */
 function randomWord(){
 	var simpleWordList;
@@ -145,7 +164,10 @@ function randomWord(){
 		console.log('Simple word list successfully loaded');
 	}
 	catch (err) {
-		io.sockets.emit('error', {message: 'Error loading simple word list'});
+		io.sockets.emit('error', {
+				processStep: 'start game',
+				message: 'Error generating initial word'
+		});
         console.log('Error loading simple word list. ' + err);
         return;
 	}
@@ -155,10 +177,9 @@ function randomWord(){
 		word = simpleWordList[parseInt(Math.random() * simpleWordList.length)];
 	}
 	while (	word === undefined || 
-			(!/^[a-z]+$/.test(word)) || // contains only lower case characters (filter out hyphenated words, abbreviations etc.)
+			!/^[a-z]+$/.test(word) || // contains only lower case characters (filter out hyphenated words, abbreviations etc.)
 			word.length < 3 || 			// word length between 3..
-			word.length > 6 || 			// .. and 6
-			rejectList.indexOf(word) > -1); // check for rejected word
+			word.length > 7); 			// .. and 7
 	return word;
 }
 
@@ -168,26 +189,31 @@ function randomWord(){
  * 		Identifies first player  
  * @param: roomId
  */
-function firstTurn(roomId){
+function firstTurn(roomId) {
+	if (games[roomId] === undefined) {
+		io.sockets.to(this.id).emit('error', {message: 'Unable to communicate with room.'});
+		return;
+	}
     var keys = Object.keys(games[roomId].players); // Get list of socket IDs in the room
     var data = {
-    		roomId: roomId,
+    		//roomId: roomId,
     		nextPlayerId: keys[0], 
     		nextPlayerName: games[roomId].players[keys[0]].name,
     		currWord: randomWord().toUpperCase(),
     		pinOrBan: '',
     		letter: '',
-    		playerName: '-',
-    		currScore: '-',
-    		totalScore: '-'
+    		playerName: '(server)',
+    		//currScore: '-',
+    		//totalScore: '-'
     };
-	games[roomId].players[data.nextPlayerId].turn++;
+	games[roomId].players[data.nextPlayerId].turn++; //increment turn # for first player
 	games[roomId].state = 'started';
     io.sockets.to(roomId).emit('newWord', data);
 }
 
 
-/* Checks if at least one letter is reused between the 2 strings
+/** 
+ * Checks if at least one letter is reused between the 2 strings
  * @param: string1, string2
  */
 function isFragmentReused(string1, string2) {
@@ -337,6 +363,9 @@ function computeWinner(roomId){
 */
 function identifyNextPlayer(currPlayerId) {
 	var keys = Object.keys(games[roomLookup[currPlayerId]].players); // Get list of socket IDs in the room
+	if (keys.length === 1) { // If this is the only player in the room
+		return;
+	}
 	var idx = (keys.indexOf(currPlayerId) + 1) % keys.length; // index of next player
     return keys[idx]; // ID of next player
 }
@@ -371,36 +400,32 @@ function nextTurn(data) {
 	var roomId = roomLookup[data.id];
 	var valid;
 	
-	// If no room found for client
-	if (roomId === undefined) {
+	if (roomId == undefined) { // If no room found for client
 		io.sockets.to(data.id).emit('error', {message: 'Unable to communicate with room.'});
 		return;
 	}
 	
-	// Notify player whether response is valid or invalid
-	valid = isValidWord(data);
-	if (valid.value) {
+	valid = isValidWord(data); // Check if word is valid
+	if (valid.value) { // Notify player if word is valid or invalid
 //		io.sockets.to(data.id).emit('responseAccepted');
 	}
 	else {
-		io.sockets.to(data.id).emit('error', {message: valid.message});
+		io.sockets.to(data.id).emit('error', {
+			processStep: 'active game',
+			message: valid.message
+		});
 		return;
-	}
+	} // If word is invalid, don't process further
 	
-	//If word is valid
+	//TODO: Don't send player name. client can retrieve from PlayersArray
 	data.playerName = games[roomId].players[data.id].name; // Name of current player
 	
-	// Get next player info
-	data.nextPlayerId = identifyNextPlayer(data.id);
-	data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player
-    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
-	
 	// Identify reused fragment and score
-	data.reusedFragment = reusedFragment(data.currWord, data.prevWord);
-    data.currScore = 10 * data.reusedFragment.length; // score for this turn
+	data.reusedFragment = reusedFragment(data.currWord, data.prevWord); // Identify reused fragment
+    data.currScore = 10 * data.reusedFragment.length; // calculate score for current turn
     games[roomId].players[data.id].totalScore += data.currScore; //update total score
     data.totalScore = games[roomId].players[data.id].totalScore; 
-    
+	    
     // Assign pin/ ban for next turn
     data.pinOrBan = data.nextPinOrBan; 
     data.letter = data.nextLetter;
@@ -408,6 +433,14 @@ function nextTurn(data) {
     	games[roomId].players[data.id].pinBanUsed++; //update number of pins/ bans used 
     }
     
+	// Get next player info
+	data.nextPlayerId = identifyNextPlayer(data.id); // Get ID of next player
+	if (data.nextPlayerId !== undefined) { // If there is another player
+		//TODO: Don't send name
+		data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player
+	    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
+	}
+	
     // Remove unnecessary properties
     delete data.prevWord; 
     delete data.nextPinOrBan;
@@ -416,8 +449,11 @@ function nextTurn(data) {
 	// Notify clients to prepare for next player's turn
     io.sockets.to(roomId).emit('newWord', data);
 	
+    
     // Check if game is over
+    //TODO: Don't check if this is the only player in the room
     checkGameOver(data.nextPlayerId);
+    
 }
 
 
@@ -429,73 +465,100 @@ function passTurn(id) {
 	var roomId = roomLookup[id];
 	var data = {};
 	
+	if (roomId == undefined) {
+		io.sockets.to(data.id).emit('error', {message: 'Unable to communicate with room.'});
+		return;
+	}
+	
 	// Get next player info
-	data.nextPlayerId = identifyNextPlayer(id); // Id of next player
-	data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player
-    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
-        
-    // Notify clients to activate player
-    io.sockets.to(roomId).emit('activateNextPlayer', data);
-    
-    // Check if game is over
-    if (games[roomId].state !== 'ended') {
-    	checkGameOver(data.nextPlayerId);  
-    }
+	if (games[roomId].state === 'started') {
+		data.nextPlayerId = identifyNextPlayer(id); // Id of next player
+		if (data.nextPlayerId !== undefined) {
+			data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player
+		    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
+		        
+		    // Notify clients to activate player
+		    io.sockets.to(roomId).emit('activateNextPlayer', data);
+		    
+		    // Check if game is over
+	    	if (games[roomId].state !== 'ended') {
+		    	checkGameOver(data.nextPlayerId);  
+	    	}
+		}
+	}
+	console.log(games[roomId].players[id].name, ' passed turn');
 }
 
 
-/* Handles player disconnect event received from client.
+/** 
+ * Handles player disconnect event received from client.
  * Deletes player data so turn is not passed to them.
  */
 function disconnect() {
-	var id = this.id; // ID of disconnected player
+	var id = this.id; // ID of disconnected player  
 	console.log(id, 'disconnected');
 	
 	// If player belonged to a room
 	if (roomLookup[id] !== undefined) {
 		var roomId = roomLookup[id]; // Get room ID of disconnected player
-
-		// If game is not over
-		if (games[roomId] !== undefined) {
+//		console.log(id, 'belonged to room', roomId);
+		
+		if (games[roomId].state !== 'ended') {
 			var players = games[roomId].players; // Get list of players in room
-			var turns = [];
-			var key;
-			var data = {};
 
 			// Notify other players in the room that somebody left
-			io.sockets.to(roomId).emit('playerLeftRoom', players[id].name);
-		
-			// Determine whose turn it is
-			for (key in players) {
-				if (players.hasOwnProperty(key)) {
-					turns.push(players[key].turn); // create an array with turn #s
-				}
-			}
-			var maxTurn = Math.max.apply(Math, turns); // Find the highest turn #
+			io.sockets.to(roomId).emit('playerLeftRoom', 
+										{id: id, 
+										name: players[id].name, 
+										roomId: roomId
+			});
+			console.log(players[id].name, 'left room', roomId);
 			
-			for (key in players) {
-				if (players[key].turn === maxTurn) { // Identify last player that matches maxTurn
-					break;
+			if (games[roomId].state === 'started') {
+				var turns = [];
+				var key;
+				var data = {};
+				
+				// Identify current player
+				for (key in players) {
+					if (players.hasOwnProperty(key)) {
+						turns.push(players[key].turn); // create an array with turn #s
+					}
 				}
-			}
+				var maxTurn = Math.max.apply(Math, turns); // Find the highest turn #
+				for (key in players) {
+					if (players[key].turn === maxTurn) { // Identify last player that matches maxTurn
+						break;
+					}
+				}
 		
-			// If the player who left had the active turn, pass turn to next player
-			if (key === id) {
-				passTurn(id);
+				// If the player who left had the active turn, pass turn to next player
+				if (key === id) {
+					passTurn(id);
+				}
 			}
 			
 			// Delete player data
 			try {
+				//delete gameSocket.adapter.rooms[roomId][id];
+				this.leave(roomId);
 				delete games[roomId].players[id];
 				delete roomLookup[id];
 			}
 			catch (err) {
 		        console.log('Could not delete from array: ' + err);
 			}
-			
 		}
 	}
 }
+
+//function leaveGame() {
+//	var _this = this;
+//	//var id = this.id;
+//	//delete gameSocket.adapter.rooms[roomLookup[id]][id];
+//	//this.leave(roomLookup[id]);
+//	disconnect(_this);
+//}
 
 
 // Using 'exports' makes this function available to other files once imported
@@ -508,14 +571,14 @@ exports.initGame = function(sio, socket) {
     gameSocket.on('nextTurn', nextTurn);
     gameSocket.on('passTurn', passTurn);
     gameSocket.on('disconnect', disconnect);
+    gameSocket.on('leaveGame', disconnect);
     gameSocket.on('error', function (err) { console.error(err.stack);});
     
     // Load dictionary if not already loaded
 	if (wordList.length === 0 || rejectList.length === 0) {
 		loadWordLists();
-		//console.log('Random word test:', randomWord());
+		console.log('Testing random word:', randomWord());
 	}
-	console.log('testing random word:', randomWord());
 };
 
 
