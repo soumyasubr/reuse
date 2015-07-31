@@ -23,7 +23,7 @@ var App = function() {
 	 */
 	function createGame() {
 		// Store name on client
-		myName = $('#name-input').val() || 'Anonymous';
+		myName = $('#name-input').val().trim() || 'Anonymous';
 	    socket.emit('createNewGame',myName);
 	}
 	    
@@ -33,7 +33,7 @@ var App = function() {
 	 */
 	function joinGame() {
 		// Store name on client
-		myName = $('#name-input').val() || 'Anonymous';
+		myName = $('#name-input').val().trim() || 'Anonymous';
 	    var data = {
 		    	playerName: myName, 
 				roomId: $('#room-input').val()
@@ -63,7 +63,7 @@ var App = function() {
 			else { // To other players
 				showMessage( { // Notify that a player joined
 					screen: '#lobby',
-					message: data.playerName + ' joined',
+					message: data.playerName + ' joined. ',
 					type: 'info'
 				});
 			}
@@ -123,153 +123,153 @@ var App = function() {
 		return isReused;
 	}
 	
-	
-	/** 
-	 * Validates the input word. If word is valid, then pin ban input is validated. 
-	 * If word and pin/ ban are valid, request is sent to server to validate against dictionary.
-	 */	
-	function validateResponse() {
-		var currWord = $('#word-input').val().toUpperCase().trim();
+	/**
+	 * Sends player's response (word + other info) to the server 
+	 */
+	function sendPlayerResponse() {
+		//TODO: get prev turn data from turnsArray instead
 		var prevWord = $("#word").text();
-		var valid = true;
-		var message = '';
 		
-		// Check if a word has been entered
-		if(currWord.length === 0) {
-			message = 'Enter a word.';
-			valid = false;
-		}
-		
-		// Check for spaces or special characters
-		if (!/^[A-Z]+$/.test(currWord)) { 
-			message = 'Word can only contain letters. No spaces or special characters.';
-			valid = false;
-		}
-	
-		// Check if at least one letter is reused
-		if (!isFragmentReused(currWord, prevWord)){
-			message += '<br>Must reuse at least one letter from the previous word.';
-			valid = false;
-		}
-		
-		// Check if the word has been played before
-		var pastWords = turnsArray.map(function(obj) {
-			return obj.word;
-		});
-		if (pastWords.indexOf(currWord) > -1) { // if currWord is contained in pastWords 
-			message += '<br>' + currWord + ' has already been played.';
-			valid = false;
-		}
-		
-		// Check if word is subset of previous word
-		else if (prevWord.indexOf(currWord) > -1){ // if currWord is contained in prevWord
-			message += '<br>Word cannot be a subset of the previous word.';
-			valid = false;
-		} 
-	
-		// Check if word contains the pinned letter
-		if (myPinOrBan === 'pin') {
-			if (currWord.indexOf(myLetter) === -1){ // if pinned letter is NOT contained in currWord
-				message += '<br>Word should contain the pinned letter: ' + myLetter + '.';
-				valid = false;
-			} 
-		}
-		
-		// Check if word contains the banned letter
-		else if (myPinOrBan === 'ban'){
-			if (currWord.indexOf(myLetter) > -1){ // if banned letter is contained in currWord
-				message += '<br>Word should not contain the banned letter: ' + myLetter + '.';
-				valid = false;
-			} 
-		}
-		
-//		error({message: message});
-		showMessage ({ // display message
-			screen: '#game-screen',
-			message: message,
-			type:'error'
-		});
-		
-		// If word is invalid, don't validate pin/ ban yet
-		if (!valid) {  
-			return false; 
-		}
-		
-		// Validate pin/ ban input
-		var pb; // pin or ban for next player
+		// Current turn data
+		var currWord = $('#word-input').val().toUpperCase().trim();
+		var pb = ''; // pin or ban for next player
 		var l = $("#letter-input").val().toUpperCase().trim(); // letter to pin or ban for next player
-	
-		// If Pin/ Ban is selected
-		if ($(".pin-ban-rdo").is(':checked')) {
-			pb = $(".pin-ban-rdo:checked").val();
-			
-			// Check if letter is entered
-			if(l.length === 0) { 
-				message = 'You have selected ' + pb + '. Enter a letter from your word to ' + pb;
-				valid = false;
-			}
-			
-			// Check if more than one letter is entered
-			else if (l.length > 1) { 
-				message = 'Enter only ONE letter to pin/ ban';
-				valid = false;
-			}
-			
-			// Check if letter exists in current word
-			else if (currWord.indexOf(l) === -1) { // if letter does not exist in current word
-				message = 'Letter should be in the word ' + currWord;
-				valid = false;
-			}
-		}
-		
-		
-		else { // If Pin/ Ban not selected
-			pb = '';
-			l = '';
-		}
-		
-		showMessage ({ // display message
-			screen: '#game-screen',
-			message: message,
-			type:'error'
-		});
 		
 		// If user input is valid, request server to validate against dictionary and prepare next turn
-		if (valid) {
+		if (validateResponse()) {
 			var data = {
 					//roomId: myRoomId, //instead, identify on server using roomLookup
 					//playerName: myName, // instead, identify name on server using socket ID
 					currWord: currWord,
 					prevWord: prevWord,
-					pinOrBan: myPinOrBan,
+					pinOrBan: myPinOrBan,  //TODO: place this in turnsArray
 					letter: myLetter,
 					nextPinOrBan: pb,
-					nextLetter: l
+					nextLetter: l,
+					id: socket.id
 			};
 			socket.emit('nextTurn',data);
-			console.log('Request server for to validate', data);
+			console.log('Request server to validate response', data);
 		}
-		return false;
+		
+
+		/** 
+		 * Validates the input word. If word is valid, then pin ban input is validated. 
+		 * (within scope of sendPlayerResponse)
+		 */	
+		function validateResponse() {
+			var valid = true;
+			var message = '';
+			
+			// Check for special case. If player passed turn, then word is '-'
+			if (currWord === '-') {
+				return true;
+			}
+			
+			// If word was entered
+			if(currWord.length > 0) {
+			
+				// Check for spaces or special characters
+				if (!/^[A-Z]+$/.test(currWord)) { 
+					message = 'Word can only contain letters. No spaces or special characters.';
+					valid = false;
+				}
+			
+				// Check if at least one letter is reused
+				if (!isFragmentReused(currWord, prevWord)){
+					message += '<br>Must reuse at least one letter from the previous word.';
+					valid = false;
+				}
+				
+				// Check if the word has been played before
+				var pastWords = turnsArray.map(function(obj) {
+					return obj.word;
+				});
+				if (pastWords.indexOf(currWord) > -1) { // if currWord is contained in pastWords 
+					message += '<br>' + currWord + ' has already been played.';
+					valid = false;
+				}
+				
+				// Check if word is subset of previous word
+				else if (prevWord.indexOf(currWord) > -1){ // if currWord is contained in prevWord
+					message += '<br>Word cannot be a subset of the previous word.';
+					valid = false;
+				} 
+			
+				// Check if word contains the pinned letter
+				if (myPinOrBan === 'pin') {
+					if (currWord.indexOf(myLetter) === -1){ // if pinned letter is NOT contained in currWord
+						message += '<br>Word should contain the pinned letter: ' + myLetter + '.';
+						valid = false;
+					} 
+				}
+				
+				// Check if word contains the banned letter
+				else if (myPinOrBan === 'ban'){
+					if (currWord.indexOf(myLetter) > -1){ // if banned letter is contained in currWord
+						message += '<br>Word should not contain the banned letter: ' + myLetter + '.';
+						valid = false;
+					} 
+				}
+			}
+			else { // If no word was entered
+				message = 'Enter a word.';
+				valid = false;
+			}
+			
+			showMessage ({ // display message
+				screen: '#game-screen',
+				message: message,
+				type:'error'
+			});
+			
+			// If word is invalid, don't validate pin/ ban yet
+			if (!valid) {  
+				return false; 
+			}
+			
+			
+			//*** Validate pin/ ban input***//
+		
+			// If Pin/ Ban is selected
+			if ($(".pin-ban-rdo").is(':checked')) {
+				pb = $(".pin-ban-rdo:checked").val();
+				
+				// Check if letter is entered
+				if(l.length === 0) { 
+					message = 'You have selected ' + pb + '. Enter a letter from your word to ' + pb +'. ';
+					valid = false;
+				}
+				
+				// Check if more than one letter is entered
+				else if (l.length > 1) { 
+					message = 'Enter only ONE letter to pin/ ban. ';
+					valid = false;
+				}
+				
+				// Check if letter exists in current word
+				else if (currWord.indexOf(l) === -1) { // if letter does not exist in current word
+					message = 'Letter should be in the word ' + currWord + '. ';
+					valid = false;
+				}
+			}
+			
+			showMessage ({ // display message
+				screen: '#game-screen',
+				message: message,
+				type:'error'
+			});
+
+			return valid;
+		} // validateResponse ends
 	}
 	
 	
 	/**
 	 * Processes error messages received from the server
-	 * @param - data
+	 * @param - data {processStep: , message: }
 	 */	
 	function error(data) {
-		//$("#home .status span").remove();
-//		$("#home .status").append("<span class='error'>" + err.message + "</span>");
-//		$("#home .status span").delay(2500).fadeOut(250, function() { 
-//			$(this).remove(); 
-//		});
-		
-//		$(".status").append("<span class='error'>" + err.message + "</span>");
-//		$(".status span").delay(2500).fadeOut(250, function() { 
-//			$(this).remove(); 
-//		});
-		
-		//TODO: Display only in current div
 		var screen;
 		switch (data.processStep) {
 		case 'init':
@@ -295,7 +295,6 @@ var App = function() {
 	}
 	
 	
-	//TODO: create function to display messages.. red if error, grey if info.
 	/**
 	 * Display messages in the appropriate screens. 
 	 * Error messages have class='error'. Informational messages have class='info'.
@@ -312,8 +311,9 @@ var App = function() {
 	/**
 	 * 	If game is over display winner, all the words played and scores
 	 */	
-	function gameOver(winner) {
+	function gameOver(data) {
 		var text = '';
+		var winner = data.winner;
 		
 		// Display 'game-over' div and hide other divs.
 		showScreen('#game-over');
@@ -321,8 +321,8 @@ var App = function() {
 		//Populate table with all words
 		showWordList('#word-list2'); 
 		
-		//Stop timer if still running
-		stopTimer();
+//		//Stop timer if still running
+//		stopTimer();
 		
 		if (winner.length === 1){
 			if (winner[0].id === socket.id){
@@ -349,123 +349,145 @@ var App = function() {
 	}
 	
 	
-	/*	Stop timer
-	*/	
+	/**
+	 * Stop timer
+	 */
 	function stopTimer() {
 		clearTimeout(myTimerId);
 		$("#timer").text('1:00');
 		console.log('Timer stopped', myTimerId);
 	}
 	
-	/*	Start timer
-	*/	
-	function startTimer() {
-		var timeLeft = 30;
+	/**
+	 * 	Start timer
+	 */	
+	function startTimer( elemId, time, callback) {
 		function countdown() {
-			if (timeLeft === 0) {
-				//stopTimer();
-				console.log('Time is up');
-				showMessage({
-					screen: '#game-screen',
-					message: 'Time is up!',
-					type: 'error'
-				});
-				socket.emit('passTurn');	
-			} 
-			else {
-				timeLeft--;
-				$("#timer").text('0:' + timeLeft);
+			if (time > 0) { // Timer is running
+				time--;
+				$(elemId).text('0:' + time);
 			}
+			else { // Timer expired
+				
+				//stopTimer(); //TODO: Do this here to avoid delay from server??
+				
+				console.log('Time is up', myTimerId);
+				callback(); // Do the callback
+			} 
 		}
-		myTimerId = setInterval(countdown, 1000);		
+		
+		myTimerId = setInterval(countdown, 1000); // Set a timer with 1s interval. Call countdown at every tick.		
 		console.log('Timer started', myTimerId);
 	}
 	
-    /**
-     * Display the countdown timer on the Host screen
-     *
-     * @param $el The container element for the countdown timer
-     * @param startTime
-     * @param callback The function to call when the timer ends.
-     */
-//	function timer_test( $el, startTime, callback) {
-//
-//        // Display the starting time on the screen.
-//        $el.text(startTime);
-//        App.doTextFit('#hostWord');
-//
-//        // console.log('Starting Countdown...');
-//
-//        // Start a 1 second timer
-//        var timer = setInterval(countItDown,1000);
-//
-//        // Decrement the displayed timer value on each 'tick'
-//        function countItDown(){
-//            startTime -= 1
-//            $el.text(startTime);
-//            App.doTextFit('#hostWord');
-//
-//            if( startTime <= 0 ){
-//                // console.log('Countdown Finished.');
-//
-//                // Stop the timer and do the callback.
-//                clearInterval(timer);
-//                callback();
-//                return;
-//            }
-//        }
-//
-//    } 
-	/** test end*/
 	
-	
-	function makeActivePlayer(pinBanLeft) {
-		$('#word-input').prop('placeholder', 'Enter your word');
-		$('#word-input').prop('disabled',false);
-		$('#submit-btn').prop('disabled',false);
-		$('#word').addClass('reused'); //Make word blue for active player
-		$('.pin-ban-rdo').prop('disabled',false);
-		if (pinBanLeft === 0) {
-			$('.pin-ban-rdo').prop('disabled',true);
+	/**
+	 * Passes current player's turn as timer expired. Sends data for passed turn to server.
+	 */
+	function passTurn(playerId) {
+		//makeInactivePlayer(); // TODO: Disable UI here to avoid delay from server??
+		
+		// Send passed turn data to server
+		resetGameUI(); //reset elements on game screen 
+		$('#word-input').val('-'); // Set word as '-' for passed turn
+		
+		if (playerId == socket.id) { //If active turn
+			showMessage({ 			// Display message
+				screen: '#game-screen',
+				message: 'Time is up! ',
+				type: 'error'
+			});
+			console.log ('Timer expired. Sending blank word to server.');
+			sendPlayerResponse(); 	// Send blank word
 		}
-		showMessage({
-			screen: '#game-screen',
-			message: 'Your turn',
-			type: 'info'
-		});
 	}
 	
-	function makeInactivePlayer(nextPlayerName) {
-		$('#word-input').prop('placeholder', nextPlayerName + "'s turn.");
+	
+	/**
+	 * Enables form elements. Applies color formatting.
+	 * @param pinBanLeft
+	 */
+	function makeActivePlayer(pinBanLeft) {
+		//Enable form elements
+		$('#word-input').prop('disabled',false);
+		$('#submit-btn').prop('disabled',false);
+		$('.pin-ban-rdo').prop('disabled',false);
+		if (pinBanLeft === 0) { // disable radio button if no more pin/ ban left
+			$('.pin-ban-rdo').prop('disabled',true);
+		}
+		
+		// Apply color formatting
+		$('#word').addClass('reused'); // Make word blue for active player
+		//TODO: add color for pin and ban
+		
+		// Show message
+		showMessage({
+			screen: '#game-screen',
+			message: 'Your turn. ',
+			type: 'info'
+		});
+		$('#word-input').prop('placeholder', 'Enter your word');
+	}
+	
+	
+	/**
+	 * Disable form elements. Removes color formatting.
+	 * @param
+	 */
+
+	function makeInactivePlayer() {
+		// Disable form elements
 		$('#word-input').prop('disabled',true);
 		$('#submit-btn').prop('disabled',true);
 		$('.pin-ban-rdo').prop('disabled',true);
+		
+		// Remove color formatting
 		$('#word').removeClass('reused'); // Make word black for inactive player
+		//TODO: remove color for pin and ban
+		
+		// Display prompt
+//		$('#word-input').prop('placeholder', nextPlayerName + "'s turn.");
 	}
 	
 	
-	
-	/*	Activate form elements for current player only, disable for everyone else
-	*/	
-	function activateNextPlayer(data) {
+	function resetGameUI() {
 		// Reset form elements
 		$('#word-input').val('');
 		$('#letter-input').val('');
 		$('#letter-input').prop('disabled', true);
 		$('.pin-ban-rdo').prop('checked', false); 
 		$('.pin-ban-rdo').removeClass('uncheck'); // reset check/ uncheck toggle
-		
-		if (data.nextPlayerId === socket.id) { 
-			makeActivePlayer(data.nextPinBanLeft); // Enable form elements for next player
-			console.log('in activateNextPlayer');
-			startTimer(); // Start timer
-		}
-		else {
-			makeInactivePlayer(data.nextPlayerName); // Disable form elements for all other players
-			console.log('in activateNextPlayer');
-			stopTimer(); // Stop timer
-		}
 	}
+	
+	
+//	/*	Activate form elements for current player only, disable for everyone else
+//	*/	
+//	function activateNextPlayer(data) {
+////		// Reset form elements for all players
+////		$('#word-input').val('');
+////		$('#letter-input').val('');
+////		$('#letter-input').prop('disabled', true);
+////		$('.pin-ban-rdo').prop('checked', false); 
+////		$('.pin-ban-rdo').removeClass('uncheck'); // reset check/ uncheck toggle
+//	
+//		resetGameUI();
+//		
+//		if (data.nextPlayerId === socket.id) { 
+//			makeActivePlayer(data.nextPinBanLeft); // Prepares UI for active player
+////			console.log('in activateNextPlayer');
+////			startTimer(); // Start timer
+//		}
+//		else {
+//			//makeInactivePlayer(data.nextPlayerName); // Disable form elements for all other players
+//			$('#word-input').prop('placeholder', data.nextPlayerName + "'s turn."); ////////////
+//			
+//			
+//			//console.log('in activateNextPlayer');
+//			//stopTimer(); // Stop timer
+//		}
+//		console.log('in activateNextPlayer');
+//		startTimer(); // Start timer
+//	}
 	
 	
 	/**
@@ -513,11 +535,16 @@ var App = function() {
 	function displayNewWord(data) {
 		var formattedWord;
 		
-		//Show only game screen
-		showScreen('#game-screen');
+		resetGameUI(); // Reset elements on game screen
 		
-		// Activate next player
-		activateNextPlayer(data);
+//		if (data.nextPlayerId === socket.id) { // If next player
+//			makeActivePlayer(data.nextPinBanLeft); // Enable UI
+//		}
+//		else { // If not next player
+//			//TODO: Instead, make inactive on load??
+//			//makeInactivePlayer(); // Disable UI
+//			$('#word-input').prop('placeholder', data.nextPlayerName + "'s turn."); // show prompt
+//		}
 		
 		// Apply green/ red color to pinned/ banned letter
 		if (myPinOrBan === ''){
@@ -529,10 +556,11 @@ var App = function() {
 		else if (myPinOrBan === 'ban'){
 			formattedWord =  data.currWord.replace(myLetter, '<span class="ban">' + myLetter + '</span>');
 		}
-		$('#word').html(formattedWord);
-		fitWord();
 		
+		$('#word').html(formattedWord); // Display the formatted word
 		showWordList('#word-list',3); //populate table with last 3 words
+		showScreen('#game-screen'); // make game screen is visible
+		fitWord(); // Fit word to screen size. This has to be done AFTER game-screen is visible				
 	}
 	
 	
@@ -544,6 +572,7 @@ var App = function() {
 		//Get data from the server and store in client memory
 		turnsArray.push({
 			word: data.currWord,
+			//TODO: change to formattedWord
 			blueWord:  data.currWord.replace(data.reusedFragment, // Apply blue color to re-used fragment
 							'<span class="reused">' + 
 							data.reusedFragment + '</span>'),
@@ -635,17 +664,16 @@ var App = function() {
 			}
 		}
 
-		if ($('#lobby').is(":visible")) { // Do this only if lobby is visible
+		//if ($('#lobby').is(":visible")) { // Do this only if lobby is visible
 			updatePlayerList(); // Remove name from player list in lobby screen
 			checkStartStatus(); // Enable/ disable Start button in lobby screen
-		} 
+		//} 
 		
 		if (socket.id !== data.id) { // Display message to other players
-//			error({message: data.name + ' left'}); 
 			showMessage({
 				screen: '', // show on any screen - lobby, game-screen or game-over
 				type: 'error',
-				message: data.name + ' left',
+				message: data.name + ' left. ',
 				});
 		}
 	}
@@ -656,7 +684,7 @@ var App = function() {
 	// -------------------------------------------------------
 	$('#create-btn').on('click', createGame);
 	$('#join-btn').on('click', joinGame);
-	$("#submit-btn").on('click', validateResponse);
+	$("#submit-btn").on('click', sendPlayerResponse);
 	$('#start-btn').on('click', function() {
 		socket.emit('startGame', myRoomId);	
 	});
@@ -695,7 +723,7 @@ var App = function() {
 	
 	$('#word-input, #letter-input').keypress(function(e) {
 	    if(e.keyCode === 13) {
-	    	validateResponse();
+	    	sendPlayerResponse();
 	    }
 	});
 	
@@ -716,11 +744,9 @@ var App = function() {
 		
 		// Enable text box only if pin or ban is checked	
 		if ($('.pin-ban-rdo').is(':checked')) {
-			//$('#letter-input').show();
 			$('#letter-input').prop('disabled', false);
 		}
 		else{
-			//$('#letter-input').hide();
 			$('#letter-input').prop('disabled', true);
 		}
 	});
@@ -753,26 +779,64 @@ var App = function() {
 
 	$('#room-input').on('input paste propertychange', function () {
 		var value = $('#room-input').val();
-		// $('h1').text(""+value);
 		if(value.length <= 0) {
 			$('#join-btn').prop('disabled',true);
 			return;
 		}
 		$('#join-btn').prop('disabled',false);
-
 	});
 	
 	
 	//Event handlers	
 	socket.on('playerJoinedRoom', playerJoinedRoom );
 	socket.on('newWord', function(data) {
-			getNewWordData(data);
-			displayNewWord(data);
+		console.log('next player: ', data.nextPlayerId, data.nextPlayerName);
+		
+		getNewWordData(data);
+		displayNewWord(data);
+		
+		if (data.nextPlayerId === socket.id) { // If next player
+			makeActivePlayer(data.nextPinBanLeft); // Enable UI
+		}
+		else { // If not next player
+			//makeInactivePlayer(); // Disable UI
+			$('#word-input').prop('placeholder', data.nextPlayerName + "'s turn."); // show prompt
+		}
+
+		startTimer('#timer', 30, function() {
+			passTurn(data.nextPlayerId); // Execute callback at the end of 60 seconds
+		});
 	});
-	//socket.on('responseAccepted', stopTimer);
-	socket.on('activateNextPlayer', activateNextPlayer);
+	
+	socket.on('responseAccepted', function() {
+		stopTimer();
+		makeInactivePlayer();
+	});
+	
+	socket.on('activateNextPlayer', function(data) {
+		console.log('next player: #2 ', data.nextPlayerId, data.nextPlayerName);
+	
+		if (data.nextPlayerId === socket.id) { // If next player
+			makeActivePlayer(data.nextPinBanLeft); // Enable UI
+		}
+		else { // If not next player
+			//makeInactivePlayer(); // Disable UI
+			$('#word-input').prop('placeholder', data.nextPlayerName + "'s turn."); // show prompt
+		}
+	
+		startTimer('#timer', 30, function() {
+			passTurn(data.nextPlayerId); // Execute callback at the end of 60 seconds
+		});
+	});
+	
+	
 	socket.on('playerLeftRoom', playerLeftRoom );
-	socket.on('gameOver', gameOver);
+	
+	socket.on('gameOver', function(data) {
+		getNewWordData(data);
+		gameOver(data);
+	});
+	
 	socket.on('error', error);
 	
 };
