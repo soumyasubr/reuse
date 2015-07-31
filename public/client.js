@@ -814,8 +814,9 @@ var App = function() {
 	});
 	
 	socket.on('activateNextPlayer', function(data) {
+		stopTimer();
 		console.log('next player: #2 ', data.nextPlayerId, data.nextPlayerName);
-	
+		
 		if (data.nextPlayerId === socket.id) { // If next player
 			makeActivePlayer(data.nextPinBanLeft); // Enable UI
 		}
