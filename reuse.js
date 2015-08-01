@@ -65,7 +65,8 @@ function createNewGame(playerName) {
 					name: playerName,
 					turn: 0,
 					totalScore: 0,
-					pinBanUsed: 0
+					pinBanUsed: 0,
+					currPlayer: false
 	};
 	roomLookup[id] = roomId;
 	
@@ -128,7 +129,8 @@ function joinExistingGame(data) {
 			name: data.playerName,
 			turn: 0,
 			totalScore: 0,
-			pinBanUsed: 0
+			pinBanUsed: 0,
+			currPlayer: false
 	};
 	roomLookup[data.id] = data.roomId;
 	
@@ -208,6 +210,7 @@ function firstTurn(roomId) {
     		totalScore: '-'
     };
 	games[roomId].players[data.nextPlayerId].turn++; //increment turn # for first player
+	games[roomId].players[data.nextPlayerId].currPlayer = true;
 	games[roomId].state = 'started';
     io.sockets.to(roomId).emit('newWord', data);
 }
@@ -380,23 +383,23 @@ function identifyNextPlayer(currPlayerId) {
 }
 
 
-/* Check if game is over
- * @param: nextPlayerId
- */
-function checkGameOver(nextPlayerId) {
-	var roomId = roomLookup[nextPlayerId];
-    var turn = ++games[roomId].players[nextPlayerId].turn; // Update turn number
-	console.log('next player:', nextPlayerId, '\ndata:', games[roomId].players);
-	if (turn > config.MAX_TURNS) { // If all turns have been played
-		var winner = computeWinner(roomId); // get winner info
-		console.log('winner:', winner);
-		games[roomId].state = 'ended';
-		//delete games[roomId]; // clean up array
-		
-		// Notify clients that game is over
-		io.sockets.to(roomId).emit('gameOver', winner); 
-	}
-}
+///* Check if game is over
+// * @param: nextPlayerId
+// */
+//function checkGameOver(nextPlayerId) {
+//	var roomId = roomLookup[nextPlayerId];
+//    var turn = ++games[roomId].players[nextPlayerId].turn; // Update turn number
+//	console.log('next player:', nextPlayerId, '\ndata:', games[roomId].players);
+//	if (turn > config.MAX_TURNS) { // If all turns have been played
+//		var winner = computeWinner(roomId); // get winner info
+//		console.log('winner:', winner);
+//		games[roomId].state = 'ended';
+//		//delete games[roomId]; // clean up array
+//		
+//		// Notify clients that game is over
+//		io.sockets.to(roomId).emit('gameOver', winner); 
+//	}
+//}
 
 
 function isGameOver(roomId) {
@@ -502,8 +505,14 @@ function nextTurn(data) {
     		data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player //TODO: Don't send name
     		console.log('nextTurn. next player:', data.nextPlayerId, data.nextPlayerName);
     	    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
-    	    var turn = ++games[roomId].players[data.nextPlayerId].turn; // Update turn number for next player
-    	    io.sockets.to(roomId).emit('newWord', data); // Notify clients to prepare for next player's turn
+//    	    var turn = ++games[roomId].players[data.nextPlayerId].turn; // Update turn number for next player
+    	    
+    	    //Update player information on server
+    	    games[roomId].players[data.nextPlayerId].turn++; // Update turn number for next player
+        	games[roomId].players[data.id].currPlayer = false;
+        	games[roomId].players[data.nextPlayerId].currPlayer = true;
+    	    
+        	io.sockets.to(roomId).emit('newWord', data); // Notify clients to prepare for next player's turn
     	}
     	else {
     		console.log ('in nextTurn: only 1 player in room');
@@ -524,43 +533,40 @@ function nextTurn(data) {
 //    delete data.nextPinOrBan;
 //    delete data.nextLetter;
 
-// Check if game is over
-//    checkGameOver(data.nextPlayerId);
-    
 }
 
 
-/* Notify clients to end current player's turn and pass turn to next player.
- * @param: id - Socket ID of current player
- */
-function passTurn(id) {
-	id = this.id || id; //either use id value passed to function or id of calling socket
-	var roomId = roomLookup[id];
-	var data = {};
-	
-	if (roomId == undefined) {
-		io.sockets.to(data.id).emit('error', {message: 'Unable to communicate with room. '});
-		return;
-	}
-	
-	// Get next player info
-	if (games[roomId].state === 'started') {
-		data.nextPlayerId = identifyNextPlayer(id); // Id of next player
-		if (data.nextPlayerId !== undefined) {
-			data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player
-		    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
-		        
-		    // Notify clients to activate player
-		    io.sockets.to(roomId).emit('activateNextPlayer', data);
-		    
-		    // Check if game is over
-	    	if (games[roomId].state !== 'ended') {
-		    	checkGameOver(data.nextPlayerId);  
-	    	}
-		}
-	}
-	console.log(games[roomId].players[id].name, ' passed turn');
-}
+///* Notify clients to end current player's turn and pass turn to next player.
+// * @param: id - Socket ID of current player
+// */
+//function passTurn(id) {
+//	id = this.id || id; //either use id value passed to function or id of calling socket
+//	var roomId = roomLookup[id];
+//	var data = {};
+//	
+//	if (roomId == undefined) {
+//		io.sockets.to(data.id).emit('error', {message: 'Unable to communicate with room. '});
+//		return;
+//	}
+//	
+//	// Get next player info
+//	if (games[roomId].state === 'started') {
+//		data.nextPlayerId = identifyNextPlayer(id); // Id of next player
+//		if (data.nextPlayerId !== undefined) {
+//			data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player
+//		    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
+//		        
+//		    // Notify clients to activate player
+//		    io.sockets.to(roomId).emit('activateNextPlayer', data);
+//		    
+//		    // Check if game is over
+//	    	if (games[roomId].state !== 'ended') {
+//		    	checkGameOver(data.nextPlayerId);  
+//	    	}
+//		}
+//	}
+//	console.log(games[roomId].players[id].name, ' passed turn');
+//}
 
 
 /** 
@@ -568,12 +574,11 @@ function passTurn(id) {
  * Deletes player data so turn is not passed to them.
  */
 function disconnect() {
+	var _this = this;
 	var id = this.id; // ID of disconnected player  
+	var data = {};
 	var roomId = roomLookup[id]; // Room ID of disconnected player
-	var data = {id: id};
-	var turns = [];
-	var key;
-	var currPlayer;
+	var currPlayerId;
 	
 	
 	console.log('***************', id, 'disconnected ***********');
@@ -585,62 +590,59 @@ function disconnect() {
 	
 	var players = {};
 	players = games[roomId].players; // Get list of players in room
-	console.log('players: ',players);
-	var name = players[id].name;
+	//console.log('players: ',players);
 	
 	// Notify other players in the room that somebody left
 	io.sockets.to(roomId).emit('playerLeftRoom', 
 								{id: id, 
-								name: name, 
+								name: players[id].name, 
 	});
-	//console.log(name, 'left room', roomId);
+	console.log(players[id].name, 'left room', roomId);
 
-	// if game is in waiting or ended state, do no more
+	// if game is in waiting or ended state..
 	console.log('game state: ', games[roomId].state);
 	if (games[roomId].state !== 'started') {
-		return;
+		removePlayer(); // delete player info
+		return; // Do nothing more
 	}
 	
 	// Identify who has the current turn
-	for (key in players) {
-			turns.push({
-				id: key,
-				turn: players[key].turn
-			}); // create an array with turn #s
-	}
-	console.log('turns: ', turns);
-	currPlayer = turns[0].id; // initialize current player
-	var l = turns.length;
-	for (var i=0; i<l; i++) {
-//		console.log ('comparing ', turns[i].turn, turns[(i+1) % l].turn);
-		if (turns[i].turn == turns[(i+1) % l].turn) {
-			currPlayer = turns[(i+1) % l].id;
+	for (var key in players) {
+		if (players[key].currPlayer) {
+			currPlayerId = key;
 		}
 	}
 	
-	// If the player that left did not have the active turn, do nothing more.
-	if (currPlayer !== id) {
-		console.log('DO NOTHING. not disconnected player\'s turn. ',currPlayer);
-		return;
+	// If the player that left did not have the active turn..
+	if (currPlayerId !== id) {
+		removePlayer(); // delete player info
+		console.log('DO NOTHING. not disconnected player\'s turn. ',currPlayerId);
+		return; // Do nothing more
 	}
 	
 	//**** If player who left had the active turn *****//
 	
 	//TODO: Create function
 	if (!isGameOver(roomId)) { // If game is NOT over
-		console.log('Game not over');
+		//console.log('Game not over');
+		
     	// Get next player info
-    	data.nextPlayerId = identifyNextPlayer(data.id); // Get ID of next player
+    	data.nextPlayerId = identifyNextPlayer(id); // Get ID of next player
     	if (data.nextPlayerId !== undefined) { // If this is not the only player in the room
     		data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player //TODO: Don't send name
-    		console.log('disconnect. next player:', data.nextPlayerId, data.nextPlayerName);
+    		console.log('in disconnect. next player:', data.nextPlayerId, data.nextPlayerName);
     	    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
-    	    var turn = ++games[roomId].players[data.nextPlayerId].turn; // Update turn number for next player
-    	   // io.sockets.to(roomId).emit('newWord', data); // Notify clients to prepare for next player's turn
+    	    
+    	    //Update player data on server
+    	    games[roomId].players[data.nextPlayerId].turn++; // Update turn number for next player
+        	games[roomId].players[id].currPlayer = false;
+        	games[roomId].players[data.nextPlayerId].currPlayer = true;
+    	   
     	    io.sockets.to(roomId).emit('activateNextPlayer', data); // Notify clients to skip to next player
-    	    console.log('data sent to client:', data);
+    	    //console.log('data sent to client:', data);
     	}
     	else {
+    		//TODO: Handle only one player in room
     		console.log ('disconnect: only 1 player in room');
     	}
     }
@@ -654,19 +656,24 @@ function disconnect() {
   		io.sockets.to(roomId).emit('gameOver', data); 
     }
 	
+	removePlayer();
 	
-	//Delete player data
-	try {
-		//delete gameSocket.adapter.rooms[roomId][id];
-		this.leave(roomId);
-		delete games[roomId].players[id];
-		delete roomLookup[id];
+	/**
+	 * Removes player from room and deletes player info from server
+	 * (within scope of disconnect)
+	 */
+	function removePlayer() {
+		//Delete player data
+		try {
+//			this.leave(roomId);
+			_this.leave(roomId);
+			delete games[roomId].players[id];
+			delete roomLookup[id];
+		}
+		catch (err) {
+	        console.log('Could not delete from array: ' + err);
+		}
 	}
-	catch (err) {
-        console.log('Could not delete from array: ' + err);
-	}
-	
-	
 }
 
 
