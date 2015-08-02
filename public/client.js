@@ -7,9 +7,8 @@ var App = function() {
 		myLetter, 	// letter pinned or banned for current turn
 		myTimerId, // timer handler
 		turnsArray = [], // array with data for each turn
-		totalScoresArray = [], //array with total scores for each player
 		playersArray;
-	//TODO: change to players array with name and total scores
+	var MAX_TIME = 20; // Temporary config for testing.
 	//TODO: Avoid sending player name from server as it is available in playersArray.
 	
 
@@ -319,7 +318,8 @@ var App = function() {
 		showScreen('#game-over');
 	
 		//Populate table with all words
-		showWordList(data.id,'#word-list2'); 
+		//showWordList(data.id,'#word-list2'); 
+		//updateScoreBoard (data.id,'#word-list2');
 		
 //		//Stop timer if still running
 //		stopTimer();
@@ -464,36 +464,6 @@ var App = function() {
 	}
 	
 	
-//	/*	Activate form elements for current player only, disable for everyone else
-//	*/	
-//	function activateNextPlayer(data) {
-////		// Reset form elements for all players
-////		$('#word-input').val('');
-////		$('#letter-input').val('');
-////		$('#letter-input').prop('disabled', true);
-////		$('.pin-ban-rdo').prop('checked', false); 
-////		$('.pin-ban-rdo').removeClass('uncheck'); // reset check/ uncheck toggle
-//	
-//		resetGameUI();
-//		
-//		if (data.nextPlayerId === socket.id) { 
-//			makeActivePlayer(data.nextPinBanLeft); // Prepares UI for active player
-////			console.log('in activateNextPlayer');
-////			startTimer(); // Start timer
-//		}
-//		else {
-//			//makeInactivePlayer(data.nextPlayerName); // Disable form elements for all other players
-//			$('#word-input').prop('placeholder', data.nextPlayerName + "'s turn."); ////////////
-//			
-//			
-//			//console.log('in activateNextPlayer');
-//			//stopTimer(); // Stop timer
-//		}
-//		console.log('in activateNextPlayer');
-//		startTimer(); // Start timer
-//	}
-	
-	
 	/**
 	 * Hide other divs and show the specified divs.
 	 * @param divID ID of div to show 
@@ -505,67 +475,112 @@ var App = function() {
 
 	
 	/**
+	 * Initializes the score board. Populates header with player names.
+	 * @param: tableID
+	 */
+	function initScoreBoard(tableId) {
+		// Populate table header
+		$(tableId + ' THEAD TR TH').remove(); // clear table header
+		$(tableId + ' THEAD TR').append('<th>Recent Words</th>');
+		for (var i=0; i<playersArray.length; i++) { 
+			$(tableId + ' THEAD TR').append( // Add player names
+					'<th class="' + playersArray[i].id + '">' + playersArray[i].name + '</th>');	
+		}
+		$(tableId + ' TBODY TR').remove(); // clear table body
+	}
+	
+	
+	/**
 	* Displays the words, scores etc as a matrix
 	* @param: numRows - (optional) number of rows to display. By default all rows are displayed.
 	* Otherwise the specified number of rows starting from the most recent are displayed.
 	*/
-	function showWordList(id, tableId, numRows) {
-//		var startIndex;
-		var html;
-//		if (numRows == undefined) { // if all rows should be displayed
-//			numRows = turnsArray.length;
-//			startIndex = 0;
-//		}
-//		else { // to display the last 'numRows' rows
-//			startIndex = turnsArray.length - numRows;
-//			startIndex = startIndex < 0 ? 0 : startIndex; //convert negative numbers to 0
-//		}
+	function updateScoreBoard(id, tableId) {	
+		var html,
+			formattedWord,
+			i,
+			numCols = $(tableId + ' THEAD TR TH').length; // # of columns in header
+
 		console.log('showWordList: turnsArray',turnsArray);
+
+		// Create html for new row containing word and score
+		html = 	'<tr><td>';
 		
-		// Populate table header
-		//TODO: DO this only once. Move to Start button click??
-		$(tableId + ' THEAD TR TH').remove(); // clear table header
-		$(tableId + ' THEAD TR').append('<th>Recent Words</th>');
-		for (var i=0; i<playersArray.length; i++) { 
-			$(tableId + ' THEAD TR').append(
-					'<th class="' + playersArray[i].id + '">' + playersArray[i].name + '</th>');	
+		// populate word
+		formattedWord = turnsArray[turnsArray.length-1].blueWord;
+		if (turnsArray.length >= 2) {
+			if (turnsArray[turnsArray.length-1].word === turnsArray[turnsArray.length-2].word) { // if player passed turn
+				formattedWord = '-'; // enter '-' instead of word
+				//formattedWord = ''; // enter '' instead of word
+			}
 		}
-		
-		// Create html for new row 		
-		html = 	'<tr>' +
-					'<td>' + turnsArray[turnsArray.length-1].blueWord + '</td>';
-		for (i=0; i<playersArray.length; i++) { 
-			html += '<td class="' + playersArray[i].id + '">';
-			if (id == playersArray[i].id) {
-				html += turnsArray[turnsArray.length-1].score;
+		else { // if this is the initial word from server
+			formattedWord = '<i>' + formattedWord + '</i>';
+		}
+		html += formattedWord + '</td>';
+
+		// populate score
+		for (i=0; i < numCols - 1; i++) { // use # columns in header as reference
+			//html += '<td class="' + playersArray[i].id + '">';
+			html += '<td>';
+			if (!id) { // if this is the initial word from server
+				html += '';
+			}
+			else {
+				if (!playersArray[i]) { // if player has left the game
+					html += '<i>---</i>'; //enter '---' instead of score
+				}
+				else { // if player is still in the game
+					if (id == playersArray[i].id) { // if player's turn
+						html += turnsArray[turnsArray.length-1].score; 
+					}
+					else { // if not player's turn
+						//html += '-';
+						html += ''; // enter blank if not your turn
+					}
+				}
 			}
 			html += '</td>';
 		}
-		html += '<tr>';
-
-//		if (numRows != undefined) { // If numRows parameter is specified
-//			if ($(tableId + ' TBODY TR').length == numRows + 1) { // if number of rows in table body
-//				$(tableId + ' TBODY TR:first').remove(); // remove first 
-//			}
-//		}
-
+		html += '</tr>';
 		$(tableId + ' TBODY').append(html);
 
-		// TODO:Display total scores
-//		html = 	'<tr>' +
-//					'<td>' + turnsArray[turnsArray.length-1].blueWord + '</td>';
-//		for (i=0; i<playersArray.length; i++) { 
-//			html += '<td class="' + playersArray[i].id + '">';
-//			if (id == playersArray[i].id) {
-//				html += turnsArray[turnsArray.length-1].score;
-//			}
-//			html += '</td>';
-//		}
-//		$(tableId + ' TBODY').append('<tr><td>TOTAL</td></tr>');
-		//$(tableId).append($('<li>').html('TOTAL: display total here'));
+		
+		//*** Display total scores ***//
+		$(tableId + ' .total').remove(); // remove existing total row
+		
+		// Create html for new row containing total scores
+		html = '<tr class="total">' +
+	 				'<td>TOTAL</td>';
+		for (i=0; i < numCols - 1; i++) { // use number of columns in header as reference
+			html += '<td>';
+			if (!playersArray[i]) { // if player left the game
+				html += '<i>---</i>';
+			}
+			else { // if player is still in the game
+				html +=(playersArray[i].totalScore ? playersArray[i].totalScore : 0 ); // convert undefined to 0
+			}
+			html += '</td>';
+		}
+		html += '</tr>';
+		$(tableId + ' TBODY').append(html);
 	}
 	
-
+	
+	/**
+	 * 
+	 */
+	function truncateScoreBoard(tableId, maxRows) {
+		var numRows = $(tableId + ' TBODY TR').length;
+		console.log('truncateScoreBoard', numRows, maxRows);
+		if (numRows > maxRows) { // if number of rows in table body
+			for (var i=1; i <= numRows - maxRows; i++) {
+				$(tableId + ' TBODY TR:first').remove(); // remove first 
+			}
+		}
+	}
+	
+	
 	/**
 	 * Displays word and other information for the current turn
 	 * @param data - data received from server
@@ -596,7 +611,9 @@ var App = function() {
 		}
 		
 		$('#word').html(formattedWord); // Display the formatted word
-		showWordList(data.id,'#word-list',3); //populate table with last 3 words
+		//showWordList(data.id,'#word-list',3); //populate table with last 3 words
+		//updateScoreBoard (data.id,'#word-list');
+		//truncateScoreBoard('#word-list', 4); //truncate table to show only 4 rows (3 words + TOTAL row)
 		showScreen('#game-screen'); // make game screen is visible
 		fitWord(); // Fit word to screen size. This has to be done AFTER game-screen is visible				
 	}
@@ -618,8 +635,11 @@ var App = function() {
 			playerName: data.playerName,
 			score: data.currScore
 		});
-		totalScoresArray[data.id] = data.totalScore;
-		//use playersArray instead
+		for (var i=0; i<playersArray.length; i++) {
+			if (playersArray[i] && playersArray[i].id == data.id) {
+				playersArray[i].totalScore = data.totalScore;
+			}
+		}
 		myPinOrBan = data.pinOrBan;
 		myLetter = data.letter; 
 	}
@@ -697,7 +717,8 @@ var App = function() {
 		// Remove player from playersArray
 		for (var i=0; i<playersArray.length; i++) {
 			if (playersArray[i].id == data.id) {
-				playersArray.splice(i,1);
+				//playersArray.splice(i,1);
+				delete playersArray[i];
 				break;
 			}
 		}
@@ -724,6 +745,7 @@ var App = function() {
 	$('#join-btn').on('click', joinGame);
 	$("#submit-btn").on('click', sendPlayerResponse);
 	$('#start-btn').on('click', function() {
+//		initScoreBoard('#word-list2');
 		socket.emit('startGame', myRoomId);	
 	});
 	
@@ -741,17 +763,17 @@ var App = function() {
 		showScreen('#lobby');
 	});
 	
-//	$('#name-input').keypress(function(e) {
-//	    if(e.keyCode === 13) {
-//	    	var value = $('#room-input').val();
-//	    	if (value.length <= 0) {
-//	    		createGame();
-//	    	}
-//	    	else {
-//	    		joinGame();
-//	    	}
-//	    }
-//	});
+	$('#name-input').keypress(function(e) {
+	    if(e.keyCode === 13) {
+	    	var value = $('#room-input').val();
+	    	if (value.length <= 0) {
+	    		//createGame();
+	    	}
+	    	else {
+	    		joinGame();
+	    	}
+	    }
+	});
 	
 	$('#room-input').keypress(function(e) {
 	    if(e.keyCode === 13) {
@@ -830,8 +852,15 @@ var App = function() {
 	socket.on('newWord', function(data) {
 		console.log('next player: ', data.nextPlayerId, data.nextPlayerName);
 		
-		getNewWordData(data);
-		displayNewWord(data);
+		getNewWordData(data); //getNewTurnData
+		
+		if (data.id == undefined) { // if first turn
+			initScoreBoard('#word-list2'); //"score-board
+		}
+		updateScoreBoard (data.id,'#word-list2'); 
+		$('#word-list').html($('#word-list2').html());
+		truncateScoreBoard('#word-list', 4); //truncate table to show only 4 rows (3 words + TOTAL row)
+		displayNewWord(data); //displayNewTurnData
 		
 		if (data.nextPlayerId === socket.id) { // If next player
 			makeActivePlayer(data.nextPinBanLeft); // Enable UI
@@ -841,7 +870,7 @@ var App = function() {
 			$('#word-input').prop('placeholder', data.nextPlayerName + "'s turn."); // show prompt
 		}
 
-		startTimer('#timer', 60, function() {
+		startTimer('#timer', MAX_TIME, function() {
 			passTurn(data.nextPlayerId); // Execute callback at the end of 60 seconds
 		});
 	});
@@ -863,7 +892,7 @@ var App = function() {
 			$('#word-input').prop('placeholder', data.nextPlayerName + "'s turn."); // show prompt
 		}
 	
-		startTimer('#timer', 60, function() {
+		startTimer('#timer', MAX_TIME, function() {
 			passTurn(data.nextPlayerId); // Execute callback at the end of 60 seconds
 		});
 	});
@@ -873,6 +902,8 @@ var App = function() {
 	
 	socket.on('gameOver', function(data) {
 		getNewWordData(data);
+
+		updateScoreBoard (data.id,'#word-list2');
 		gameOver(data);
 	});
 	

@@ -192,7 +192,7 @@ function randomWord(){
  * @param: roomId
  */
 function firstTurn(roomId) {
-	console.log('firstTurn', roomId, games[roomId]);
+	//console.log('firstTurn', roomId, games[roomId]);
 	if (games[roomId] == undefined) {
 		io.sockets.to(this.id).emit('error', {message: 'Unable to communicate with room. '});
 		return;
@@ -205,9 +205,9 @@ function firstTurn(roomId) {
     		currWord: randomWord().toUpperCase(),
     		pinOrBan: '',
     		letter: '',
-    		playerName: '(server)',
-    		currScore: '-',
-    		totalScore: '-'
+//    		playerName: '(server)',
+//    		currScore: '-',
+//    		totalScore: 0
     };
 	games[roomId].players[data.nextPlayerId].turn++; //increment turn # for first player
 	games[roomId].players[data.nextPlayerId].currPlayer = true;
