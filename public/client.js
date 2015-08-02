@@ -319,7 +319,7 @@ var App = function() {
 		showScreen('#game-over');
 	
 		//Populate table with all words
-		showWordList('#word-list2'); 
+		showWordList(data.id,'#word-list2'); 
 		
 //		//Stop timer if still running
 //		stopTimer();
@@ -412,13 +412,16 @@ var App = function() {
 		$('#word-input').prop('disabled',false);
 		$('#submit-btn').prop('disabled',false);
 		$('.pin-ban-rdo').prop('disabled',false);
+		//TODO: # of pins/ bans left
+		//$('#pin-bans-left').text('(' + pinBanLeft + ' left)');
 		if (pinBanLeft === 0) { // disable radio button if no more pin/ ban left
 			$('.pin-ban-rdo').prop('disabled',true);
 		}
 		
 		// Apply color formatting
 		$('#word').addClass('reused'); // Make word blue for active player
-		//TODO: add color for pin and ban
+		$('#pin').addClass('pin');
+		$('#ban').addClass('ban');
 		
 		// Show message
 		showMessage({
@@ -443,7 +446,8 @@ var App = function() {
 		
 		// Remove color formatting
 		$('#word').removeClass('reused'); // Make word black for inactive player
-		//TODO: remove color for pin and ban
+		$('#pin').removeClass('pin');
+		$('#ban').removeClass('ban');
 		
 		// Display prompt
 //		$('#word-input').prop('placeholder', nextPlayerName + "'s turn.");
@@ -505,26 +509,60 @@ var App = function() {
 	* @param: numRows - (optional) number of rows to display. By default all rows are displayed.
 	* Otherwise the specified number of rows starting from the most recent are displayed.
 	*/
-	function showWordList(tableId, numRows) {
-		var startIndex;
-		if (numRows == undefined) { // if all rows should be displayed
-			numRows = turnsArray.length;
-			startIndex = 0;
-		}
-		else { // to display the last 'numRows' rows
-			startIndex = turnsArray.length - numRows;
-			startIndex = startIndex < 0 ? 0 : startIndex; //convert negative numbers to 0
-		}
-		//console.log('showWordList: turnsArray',turnsArray);
+	function showWordList(id, tableId, numRows) {
+//		var startIndex;
+		var html;
+//		if (numRows == undefined) { // if all rows should be displayed
+//			numRows = turnsArray.length;
+//			startIndex = 0;
+//		}
+//		else { // to display the last 'numRows' rows
+//			startIndex = turnsArray.length - numRows;
+//			startIndex = startIndex < 0 ? 0 : startIndex; //convert negative numbers to 0
+//		}
+		console.log('showWordList: turnsArray',turnsArray);
 		
-		// Update table
-		//TODO: Change from list to table
-		$(tableId).empty();
-		for (var i = startIndex; i < turnsArray.length; i++) {	
-			$(tableId).append($('<li>').html(turnsArray[i].blueWord + ' ' + turnsArray[i].score + ' ' + turnsArray[i].playerName));
+		// Populate table header
+		//TODO: DO this only once. Move to Start button click??
+		$(tableId + ' THEAD TR TH').remove(); // clear table header
+		$(tableId + ' THEAD TR').append('<th>Recent Words</th>');
+		for (var i=0; i<playersArray.length; i++) { 
+			$(tableId + ' THEAD TR').append(
+					'<th class="' + playersArray[i].id + '">' + playersArray[i].name + '</th>');	
 		}
+		
+		// Create html for new row 		
+		html = 	'<tr>' +
+					'<td>' + turnsArray[turnsArray.length-1].blueWord + '</td>';
+		for (i=0; i<playersArray.length; i++) { 
+			html += '<td class="' + playersArray[i].id + '">';
+			if (id == playersArray[i].id) {
+				html += turnsArray[turnsArray.length-1].score;
+			}
+			html += '</td>';
+		}
+		html += '<tr>';
+
+//		if (numRows != undefined) { // If numRows parameter is specified
+//			if ($(tableId + ' TBODY TR').length == numRows + 1) { // if number of rows in table body
+//				$(tableId + ' TBODY TR:first').remove(); // remove first 
+//			}
+//		}
+
+		$(tableId + ' TBODY').append(html);
+
 		// TODO:Display total scores
-		$(tableId).append($('<li>').html('TOTAL: display total here'));
+//		html = 	'<tr>' +
+//					'<td>' + turnsArray[turnsArray.length-1].blueWord + '</td>';
+//		for (i=0; i<playersArray.length; i++) { 
+//			html += '<td class="' + playersArray[i].id + '">';
+//			if (id == playersArray[i].id) {
+//				html += turnsArray[turnsArray.length-1].score;
+//			}
+//			html += '</td>';
+//		}
+//		$(tableId + ' TBODY').append('<tr><td>TOTAL</td></tr>');
+		//$(tableId).append($('<li>').html('TOTAL: display total here'));
 	}
 	
 
@@ -558,7 +596,7 @@ var App = function() {
 		}
 		
 		$('#word').html(formattedWord); // Display the formatted word
-		showWordList('#word-list',3); //populate table with last 3 words
+		showWordList(data.id,'#word-list',3); //populate table with last 3 words
 		showScreen('#game-screen'); // make game screen is visible
 		fitWord(); // Fit word to screen size. This has to be done AFTER game-screen is visible				
 	}
@@ -576,7 +614,7 @@ var App = function() {
 			blueWord:  data.currWord.replace(data.reusedFragment, // Apply blue color to re-used fragment
 							'<span class="reused">' + 
 							data.reusedFragment + '</span>'),
-			playerID: data.id,
+			id: data.id,
 			playerName: data.playerName,
 			score: data.currScore
 		});
@@ -703,17 +741,17 @@ var App = function() {
 		showScreen('#lobby');
 	});
 	
-	$('#name-input').keypress(function(e) {
-	    if(e.keyCode === 13) {
-	    	var value = $('#room-input').val();
-	    	if (value.length <= 0) {
-	    		createGame();
-	    	}
-	    	else {
-	    		joinGame();
-	    	}
-	    }
-	});
+//	$('#name-input').keypress(function(e) {
+//	    if(e.keyCode === 13) {
+//	    	var value = $('#room-input').val();
+//	    	if (value.length <= 0) {
+//	    		createGame();
+//	    	}
+//	    	else {
+//	    		joinGame();
+//	    	}
+//	    }
+//	});
 	
 	$('#room-input').keypress(function(e) {
 	    if(e.keyCode === 13) {
@@ -803,7 +841,7 @@ var App = function() {
 			$('#word-input').prop('placeholder', data.nextPlayerName + "'s turn."); // show prompt
 		}
 
-		startTimer('#timer', 30, function() {
+		startTimer('#timer', 60, function() {
 			passTurn(data.nextPlayerId); // Execute callback at the end of 60 seconds
 		});
 	});
@@ -813,7 +851,7 @@ var App = function() {
 		makeInactivePlayer();
 	});
 	
-	socket.on('activateNextPlayer', function(data) {
+	socket.on('activateNextPlayer', function(data) { 
 		stopTimer();
 		console.log('next player: #2 ', data.nextPlayerId, data.nextPlayerName);
 		
@@ -825,7 +863,7 @@ var App = function() {
 			$('#word-input').prop('placeholder', data.nextPlayerName + "'s turn."); // show prompt
 		}
 	
-		startTimer('#timer', 30, function() {
+		startTimer('#timer', 60, function() {
 			passTurn(data.nextPlayerId); // Execute callback at the end of 60 seconds
 		});
 	});
