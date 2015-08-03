@@ -74,9 +74,10 @@ function createNewGame(playerName) {
 			roomId: roomId,
 			playerName: playerName,
 			playersArray: [],
-			numPlayersInRoom: 1
 	};
-	data.playersArray.push({name: playerName});
+	data.playersArray.push({id: id,
+							name: playerName
+	});
 	
     // Notify client that they have joined a room
     io.sockets.to(id).emit('playerJoinedRoom', data);  
@@ -199,12 +200,13 @@ function firstTurn(roomId) {
 	}
     var keys = Object.keys(games[roomId].players); // Get list of socket IDs in the room
     var data = {
-    		//roomId: roomId,
     		nextPlayerId: keys[0], 
     		nextPlayerName: games[roomId].players[keys[0]].name,
     		currWord: randomWord().toUpperCase(),
+    		currPinBanLeft: config.MAX_PIN_BAN,
     		pinOrBan: '',
-    		letter: '',
+    		letter: ''	
+//			roomId: roomId,
 //    		playerName: '(server)',
 //    		currScore: '-',
 //    		totalScore: 0
@@ -292,7 +294,6 @@ function isValidWord(data) {
 	}
 	
 	// Only if word is valid so far, check if word is an acceptable English word 
-	//TODO: reject list for random word generation should be different from logic for valid word
 	if (ret.value) {
 		if (wordList.indexOf(data.currWord.toLowerCase()) === -1) { // not in word list
 			ret.message = "Can't find " + data.currWord + ' in our dictionary. ';
@@ -383,25 +384,6 @@ function identifyNextPlayer(currPlayerId) {
 }
 
 
-///* Check if game is over
-// * @param: nextPlayerId
-// */
-//function checkGameOver(nextPlayerId) {
-//	var roomId = roomLookup[nextPlayerId];
-//    var turn = ++games[roomId].players[nextPlayerId].turn; // Update turn number
-//	console.log('next player:', nextPlayerId, '\ndata:', games[roomId].players);
-//	if (turn > config.MAX_TURNS) { // If all turns have been played
-//		var winner = computeWinner(roomId); // get winner info
-//		console.log('winner:', winner);
-//		games[roomId].state = 'ended';
-//		//delete games[roomId]; // clean up array
-//		
-//		// Notify clients that game is over
-//		io.sockets.to(roomId).emit('gameOver', winner); 
-//	}
-//}
-
-
 function isGameOver(roomId) {
 	var players = games[roomId].players; // Get list of players in room
 	
@@ -415,35 +397,15 @@ function isGameOver(roomId) {
 		// Check if all turns have been played
 		var turnsPlayed;
 		for (var key in players) {
-//			if (players.hasOwnProperty(key)) {
-//				turns.push(players[key].turn); // create an array with turn #s
 				turnsPlayed = players[key].turn; // last player's turn
-			}
-//			var turnsPlayed = Math.min.apply(Math, turns); // Each player has played at least these many turns
+		}
 		
-			if (turnsPlayed === config.MAX_TURNS) { // If each player has played specified # of turns
-				//game over
-				return true;
-			}
-//		}
+		if (turnsPlayed === config.MAX_TURNS) { // If each player has played specified # of turns
+			return true; //game over
+		}
 	}
 	return false; // if game is not over
 }
-//	var data = {};
-//	
-//	// Identify current player
-//	for (key in players) {
-//		if (players.hasOwnProperty(key)) {
-//			turns.push(players[key].turn); // create an array with turn #s
-//		}
-//	}
-//	var maxTurn = Math.max.apply(Math, turns); // Find the highest turn #
-//	for (key in players) {
-//		if (players[key].turn === maxTurn) { // Identify last player that matches maxTurn
-//			break;
-//		}
-//	}
-
 
 
 /* Prepares for the next round if previous player's response is valid.
@@ -498,6 +460,7 @@ function nextTurn(data) {
         if (data.nextPinOrBan === 'pin' || data.nextPinOrBan === 'ban') {
         	games[roomId].players[data.id].pinBanUsed++; //update # of pins/ bans used for current player
         }
+        data.currPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.id].pinBanUsed; // number of pins/ bans left for current player
         
     	// Get next player info
     	data.nextPlayerId = identifyNextPlayer(data.id); // Get ID of next player
@@ -505,7 +468,6 @@ function nextTurn(data) {
     		data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player //TODO: Don't send name
     		console.log('nextTurn. next player:', data.nextPlayerId, data.nextPlayerName);
     	    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
-//    	    var turn = ++games[roomId].players[data.nextPlayerId].turn; // Update turn number for next player
     	    
     	    //Update player information on server
     	    games[roomId].players[data.nextPlayerId].turn++; // Update turn number for next player
@@ -534,39 +496,6 @@ function nextTurn(data) {
 //    delete data.nextLetter;
 
 }
-
-
-///* Notify clients to end current player's turn and pass turn to next player.
-// * @param: id - Socket ID of current player
-// */
-//function passTurn(id) {
-//	id = this.id || id; //either use id value passed to function or id of calling socket
-//	var roomId = roomLookup[id];
-//	var data = {};
-//	
-//	if (roomId == undefined) {
-//		io.sockets.to(data.id).emit('error', {message: 'Unable to communicate with room. '});
-//		return;
-//	}
-//	
-//	// Get next player info
-//	if (games[roomId].state === 'started') {
-//		data.nextPlayerId = identifyNextPlayer(id); // Id of next player
-//		if (data.nextPlayerId !== undefined) {
-//			data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player
-//		    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
-//		        
-//		    // Notify clients to activate player
-//		    io.sockets.to(roomId).emit('activateNextPlayer', data);
-//		    
-//		    // Check if game is over
-//	    	if (games[roomId].state !== 'ended') {
-//		    	checkGameOver(data.nextPlayerId);  
-//	    	}
-//		}
-//	}
-//	console.log(games[roomId].players[id].name, ' passed turn');
-//}
 
 
 /** 
@@ -677,76 +606,6 @@ function disconnect() {
 }
 
 
-//function disconnect() {
-//	var id = this.id; // ID of disconnected player  
-//	console.log(id, 'disconnected');
-//	
-//	// If player belonged to a room
-//	if (roomLookup[id] !== undefined) {
-//		var roomId = roomLookup[id]; // Get room ID of disconnected player
-////		console.log(id, 'belonged to room', roomId);
-//		
-//		if (games[roomId].state !== 'ended') {
-//			var players = games[roomId].players; // Get list of players in room
-//
-//			// Notify other players in the room that somebody left
-//			io.sockets.to(roomId).emit('playerLeftRoom', 
-//										{id: id, 
-//										name: players[id].name, 
-//										roomId: roomId
-//			});
-//			console.log(players[id].name, 'left room', roomId);
-//			
-//			if (games[roomId].state === 'started') {
-//				var turns = [];
-//				var key;
-//				var data = {};
-//				
-//				// Identify current player
-//				for (key in players) {
-//					if (players.hasOwnProperty(key)) {
-//						turns.push(players[key].turn); // create an array with turn #s
-//					}
-//				}
-//				var maxTurn = Math.max.apply(Math, turns); // Find the highest turn #
-//				var currPlayer;
-//				for (key in players) {
-//					if (players[key].turn === maxTurn) { // Identify last player that matches maxTurn
-//						//break;
-//						currPLayer = key;
-//					}
-//				}
-//		
-//				// If the player who left had the active turn, pass turn to next player
-//				if (currPlayer === id) {
-//					//passTurn(id);
-//					console.log('Curr player left');
-//				}
-//			}
-//			
-//			// Delete player data
-//			try {
-//				//delete gameSocket.adapter.rooms[roomId][id];
-//				this.leave(roomId);
-//				delete games[roomId].players[id];
-//				delete roomLookup[id];
-//			}
-//			catch (err) {
-//		        console.log('Could not delete from array: ' + err);
-//			}
-//		}
-//	}
-//}
-
-//function leaveGame() {
-//	var _this = this;
-//	//var id = this.id;
-//	//delete gameSocket.adapter.rooms[roomLookup[id]][id];
-//	//this.leave(roomLookup[id]);
-//	disconnect(_this);
-//}
-
-
 // Using 'exports' makes this function available to other files once imported
 exports.initGame = function(sio, socket) {
 	io = sio;
@@ -755,7 +614,6 @@ exports.initGame = function(sio, socket) {
     gameSocket.on('joinExistingGame', joinExistingGame);
     gameSocket.on('startGame', firstTurn);
     gameSocket.on('nextTurn', nextTurn);
-    //gameSocket.on('passTurn', passTurn);
     gameSocket.on('disconnect', disconnect);
     gameSocket.on('leaveGame', disconnect);
     gameSocket.on('error', function (err) { console.error(err.stack);});

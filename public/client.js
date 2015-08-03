@@ -1,4 +1,4 @@
-var App = function() {
+//var App = function() {
 	'use strict';
 	var socket = io.connect();
 	var	myName, // player name
@@ -8,15 +8,17 @@ var App = function() {
 		myTimerId, // timer handler
 		turnsArray = [], // array with data for each turn
 		playersArray;
-	var MAX_TIME = 20; // Temporary config for testing.
-	//TODO: Avoid sending player name from server as it is available in playersArray.
 	
+	var MAX_TIME = 60; // Temporary config for testing.
+
+	//TODO: Avoid sending player name from server as it is available in playersArray.
 
 	//Display the landing page with Create and Join buttons
 	showScreen('#home');
 	// showScreen('#game-screen');
 	// showScreen('#game-over');
 
+	
 	/**
 	 * Requests server to create a new game
 	 */
@@ -33,11 +35,10 @@ var App = function() {
 	function joinGame() {
 		// Store name on client
 		myName = $('#name-input').val().trim() || 'Anonymous';
-	    var data = {
-		    	playerName: myName, 
-				roomId: $('#room-input').val()
-	    };	    
-	    socket.emit('joinExistingGame', data);
+	    socket.emit('joinExistingGame', {
+	    	playerName: myName, 
+			roomId: $('#room-input').val()
+	    });
 	}
 	
 	
@@ -48,7 +49,7 @@ var App = function() {
 	function playerJoinedRoom(data) {
 		myRoomId = data.roomId;
 		playersArray = data.playersArray;
-
+		
 		if (playersArray.length === 1) { // If this is the host (first person to join room)
 			$('#lobby h3').html('Hello, ' + data.playerName + 
 								'!<br>Invite your friends to a game.<br>' +
@@ -79,7 +80,9 @@ var App = function() {
 	function updatePlayerList() {
 		$('#players-list TBODY TR').remove(); // empty table
 		for (var i=0; i<playersArray.length; i++) { // populate player names from playersArray
-			$('#players-list TBODY').append('<tr><td>' + playersArray[i].name + '</td></tr>');	
+			if (playersArray[i]) {
+				$('#players-list TBODY').append('<tr><td>' + playersArray[i].name + '</td></tr>');	
+			}
 		}
 	}
 	
@@ -316,13 +319,6 @@ var App = function() {
 		
 		// Display 'game-over' div and hide other divs.
 		showScreen('#game-over');
-	
-		//Populate table with all words
-		//showWordList(data.id,'#word-list2'); 
-		//updateScoreBoard (data.id,'#word-list2');
-		
-//		//Stop timer if still running
-//		stopTimer();
 		
 		if (winner.length === 1){
 			if (winner[0].id === socket.id){
@@ -413,7 +409,6 @@ var App = function() {
 		$('#submit-btn').prop('disabled',false);
 		$('.pin-ban-rdo').prop('disabled',false);
 		//TODO: # of pins/ bans left
-		//$('#pin-bans-left').text('(' + pinBanLeft + ' left)');
 		if (pinBanLeft === 0) { // disable radio button if no more pin/ ban left
 			$('.pin-ban-rdo').prop('disabled',true);
 		}
@@ -501,7 +496,6 @@ var App = function() {
 			i,
 			numCols = $(tableId + ' THEAD TR TH').length; // # of columns in header
 
-		console.log('showWordList: turnsArray',turnsArray);
 
 		// Create html for new row containing word and score
 		html = 	'<tr><td>';
@@ -510,8 +504,7 @@ var App = function() {
 		formattedWord = turnsArray[turnsArray.length-1].blueWord;
 		if (turnsArray.length >= 2) {
 			if (turnsArray[turnsArray.length-1].word === turnsArray[turnsArray.length-2].word) { // if player passed turn
-				formattedWord = '-'; // enter '-' instead of word
-				//formattedWord = ''; // enter '' instead of word
+				formattedWord = '<i>(pass)</i>'; // enter '-' instead of word
 			}
 		}
 		else { // if this is the initial word from server
@@ -535,8 +528,7 @@ var App = function() {
 						html += turnsArray[turnsArray.length-1].score; 
 					}
 					else { // if not player's turn
-						//html += '-';
-						html += ''; // enter blank if not your turn
+						html += ''; // enter blank if not player's turn
 					}
 				}
 			}
@@ -572,7 +564,6 @@ var App = function() {
 	 */
 	function truncateScoreBoard(tableId, maxRows) {
 		var numRows = $(tableId + ' TBODY TR').length;
-		console.log('truncateScoreBoard', numRows, maxRows);
 		if (numRows > maxRows) { // if number of rows in table body
 			for (var i=1; i <= numRows - maxRows; i++) {
 				$(tableId + ' TBODY TR:first').remove(); // remove first 
@@ -585,19 +576,11 @@ var App = function() {
 	 * Displays word and other information for the current turn
 	 * @param data - data received from server
 	 */
-	function displayNewWord(data) {
+	function displayNewTurn(data) {
 		var formattedWord;
+		var pinBanLeft;
 		
 		resetGameUI(); // Reset elements on game screen
-		
-//		if (data.nextPlayerId === socket.id) { // If next player
-//			makeActivePlayer(data.nextPinBanLeft); // Enable UI
-//		}
-//		else { // If not next player
-//			//TODO: Instead, make inactive on load??
-//			//makeInactivePlayer(); // Disable UI
-//			$('#word-input').prop('placeholder', data.nextPlayerName + "'s turn."); // show prompt
-//		}
 		
 		// Apply green/ red color to pinned/ banned letter
 		if (myPinOrBan === ''){
@@ -609,13 +592,14 @@ var App = function() {
 		else if (myPinOrBan === 'ban'){
 			formattedWord =  data.currWord.replace(myLetter, '<span class="ban">' + myLetter + '</span>');
 		}
-		
 		$('#word').html(formattedWord); // Display the formatted word
-		//showWordList(data.id,'#word-list',3); //populate table with last 3 words
-		//updateScoreBoard (data.id,'#word-list');
-		//truncateScoreBoard('#word-list', 4); //truncate table to show only 4 rows (3 words + TOTAL row)
-		showScreen('#game-screen'); // make game screen is visible
-		fitWord(); // Fit word to screen size. This has to be done AFTER game-screen is visible				
+		
+		showScreen('#game-screen'); // make game screen visible
+		fitWord(); // Fit word to screen size. This has to be done AFTER game-screen is visible
+		
+		if (data.id == socket.id) {
+			$('#pin-ban-left').text('(' + data.currPinBanLeft + ' left)');
+		}
 	}
 	
 	
@@ -623,7 +607,7 @@ var App = function() {
 	 * Get data for the current turn from the server
 	 * @param data
 	 */
-	function getNewWordData(data) {
+	function getNewTurnData(data) {
 		//Get data from the server and store in client memory
 		turnsArray.push({
 			word: data.currWord,
@@ -657,56 +641,6 @@ var App = function() {
 		);
 	}
 
-//	function transition(from, to) {
-//
-//		console.log("transition - " + from + " -> " + to);
-//		
-//		$(from).addClass("scale-out");
-//		$(to).removeClass("invisible-layer");
-//		$(to).addClass("delay scale-up");
-//
-//		$(from).on("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd", function () {
-//			console.log("animation end " + from);
-//			$(from).off("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd");
-//			$(from).addClass("invisible-layer");
-//			$(from).removeClass("scale-out current-view");
-//		});
-//
-//		$(to).on("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd", function () {
-//			console.log("animation end: " + to);
-//			$(to).off("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd");
-//			$(to).addClass("current-view");
-//			$(to).removeClass("delay scale-up");
-//		});
-//
-//	}
-
-//	function addPlayerToView(playerName){
-//			var html = "<tr><td>" + playerName + "</td></tr>";
-//			var tableBody = $('#players-list TBODY');
-//			// var $tableBody = $('#players-list');
-//			tableBody.append(html);
-//			
-//			// $scrollHeight = $tableBody.prop("scrollHeight");
-//			// $height = $tableBody.height();
-//			// $maxScroll = $scrollHeight - $height;
-//
-//			// console.log("scrollHeight: " + $scrollHeight + " | height: " + $height + " | maxScroll: " + $maxScroll);
-//
-//			// $tableBody.scrollTop($maxScroll);
-//
-//			// $lastRow = $('.tableSection tr:last');
-//			// $div = $lastRow.find('td > div');
-//			// $div.fadeIn();
-//	}
-
-
-	// -------------------------------------------------------
-
-//	function startGame() {
-//			socket.emit('startGame', myRoomId);	
-//	}
-	
 	
 	/**
 	 * Handles player leaving the game.
@@ -716,9 +650,8 @@ var App = function() {
 	function playerLeftRoom(data) {
 		// Remove player from playersArray
 		for (var i=0; i<playersArray.length; i++) {
-			if (playersArray[i].id == data.id) {
-				//playersArray.splice(i,1);
-				delete playersArray[i];
+			if (playersArray[i] && playersArray[i].id == data.id) {
+				delete playersArray[i]; // deletes value, but does not index
 				break;
 			}
 		}
@@ -738,14 +671,16 @@ var App = function() {
 	}
 	
 	
+	
 	// -------------------------------------------------------
 	// UI Code 
 	// -------------------------------------------------------
 	$('#create-btn').on('click', createGame);
 	$('#join-btn').on('click', joinGame);
-	$("#submit-btn").on('click', sendPlayerResponse);
+	$("#submit-btn").on('click', function (data) {
+		sendPlayerResponse(data);
+	});
 	$('#start-btn').on('click', function() {
-//		initScoreBoard('#word-list2');
 		socket.emit('startGame', myRoomId);	
 	});
 	
@@ -852,15 +787,16 @@ var App = function() {
 	socket.on('newWord', function(data) {
 		console.log('next player: ', data.nextPlayerId, data.nextPlayerName);
 		
-		getNewWordData(data); //getNewTurnData
+		getNewTurnData(data);
 		
 		if (data.id == undefined) { // if first turn
-			initScoreBoard('#word-list2'); //"score-board
+			initScoreBoard('#score-board'); 
+			$('#pin-ban-left').text('(' + data.currPinBanLeft + ' left)');
 		}
-		updateScoreBoard (data.id,'#word-list2'); 
-		$('#word-list').html($('#word-list2').html());
-		truncateScoreBoard('#word-list', 4); //truncate table to show only 4 rows (3 words + TOTAL row)
-		displayNewWord(data); //displayNewTurnData
+		updateScoreBoard (data.id,'#score-board'); 
+		$('#recent-words').html($('#score-board').html()); // copy score board
+		truncateScoreBoard('#recent-words', 4); //truncate table to show only 4 rows (3 words + TOTAL row)
+		displayNewTurn(data);
 		
 		if (data.nextPlayerId === socket.id) { // If next player
 			makeActivePlayer(data.nextPinBanLeft); // Enable UI
@@ -901,15 +837,15 @@ var App = function() {
 	socket.on('playerLeftRoom', playerLeftRoom );
 	
 	socket.on('gameOver', function(data) {
-		getNewWordData(data);
+		getNewTurnData(data);
 
-		updateScoreBoard (data.id,'#word-list2');
+		updateScoreBoard (data.id,'#score-board');
 		gameOver(data);
 	});
 	
 	socket.on('error', error);
 	
-};
-
-// Initial call
-new App();
+//};
+//
+//// Initial call
+//new App();
