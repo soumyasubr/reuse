@@ -135,7 +135,6 @@ function joinExistingGame(data) {
 	};
 	roomLookup[data.id] = data.roomId;
 	
-//	var players = games[data.roomId].players; 
 	data.playersArray = [];
 	for (var id in games[data.roomId].players) { //players info
 			data.playersArray.push({ //Create array with player ids and names
@@ -152,7 +151,7 @@ function joinExistingGame(data) {
 
 /**
  * Generate a random word that is no longer than 7 letters.
- * 5th grade word list from http://www.ideal-group.org/dictionary/ (p-5_ok.txt) is used.
+ * 5th grade word list from http://www.ideal-group.org/dictionary/  is used. (p-5_ok.txt)
  */
 function randomWord(){
 	var simpleWordList;
@@ -478,6 +477,14 @@ function nextTurn(data) {
     	}
     	else {
     		console.log ('in nextTurn: only 1 player in room');
+     		//data.winner = computeWinner(roomId); // get winner info
+      		//console.log('winner:', data.winner);
+      		games[roomId].state = 'ended';
+//      	//delete games[roomId]; // clean up array
+     		
+      		// Notify clients that game is over
+      		io.sockets.to(roomId).emit('error', {message: 'Ending game as all other players left :('});
+      		io.sockets.to(roomId).emit('gameOver', data); 
     	}
     }
     else { // If game is over
@@ -519,7 +526,6 @@ function disconnect() {
 	
 	var players = {};
 	players = games[roomId].players; // Get list of players in room
-	//console.log('players: ',players);
 	
 	// Notify other players in the room that somebody left
 	io.sockets.to(roomId).emit('playerLeftRoom', 
@@ -553,7 +559,6 @@ function disconnect() {
 	
 	//TODO: Create function
 	if (!isGameOver(roomId)) { // If game is NOT over
-		//console.log('Game not over');
 		
     	// Get next player info
     	data.nextPlayerId = identifyNextPlayer(id); // Get ID of next player
@@ -573,6 +578,14 @@ function disconnect() {
     	else {
     		//TODO: Handle only one player in room
     		console.log ('disconnect: only 1 player in room');
+     		data.winner = computeWinner(roomId); // get winner info
+      		console.log('winner:', data.winner);
+      		games[roomId].state = 'ended';
+//      	//delete games[roomId]; // clean up array
+     		
+      		// Notify clients that game is over
+      		io.sockets.to(roomId).emit('error', {message: 'Ending game as all other players left :('});
+      		io.sockets.to(roomId).emit('gameOver', data); 
     	}
     }
     else { // If game is over
@@ -624,12 +637,4 @@ exports.initGame = function(sio, socket) {
 		console.log('Testing random word:', randomWord());
 	}
 };
-
-
-//TODO: Organize the code better. Like classes..
-//var player = function(){
-//	a: function(){}	
-//};
-
-
 

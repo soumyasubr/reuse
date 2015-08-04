@@ -1,4 +1,4 @@
-//var App = function() {
+var App = function() {
 	'use strict';
 	var socket = io.connect();
 	var	myName, // player name
@@ -23,8 +23,18 @@
 	 * Requests server to create a new game
 	 */
 	function createGame() {
-		// Store name on client
-		myName = $('#name-input').val().trim() || 'Anonymous';
+		var name = $('#name-input').val().trim() || 'Anonymous';
+		if (!/^[A-Za-z0-9 ]+$/.test(name)) { 
+			showMessage({
+				message: 'Name cannot contain special characters.',
+				type: 'error',
+				screen: '#home'
+			});
+			return;
+		}
+		
+		myName = name; // Store name on client
+		
 	    socket.emit('createNewGame',myName);
 	}
 	    
@@ -33,8 +43,18 @@
 	 * Requests server to join the specified game
 	 */
 	function joinGame() {
-		// Store name on client
-		myName = $('#name-input').val().trim() || 'Anonymous';
+		var name = $('#name-input').val().trim() || 'Anonymous';
+		if (!/^[A-Za-z0-9 ]+$/.test(name)) { 
+			showMessage({
+				message: 'Name cannot contain special characters.',
+				type: 'error',
+				screen: '#home'
+			});
+			return;
+		}
+		
+		myName = name; // Store name on client
+		
 	    socket.emit('joinExistingGame', {
 	    	playerName: myName, 
 			roomId: $('#room-input').val()
@@ -286,6 +306,9 @@
 		case 'active game':
 			screen = '#game-screen';
 			break;
+		case 'game over':
+			screen = '#game-over';
+			break;
 		default:
 			screen = '';
 		}
@@ -476,7 +499,7 @@
 	function initScoreBoard(tableId) {
 		// Populate table header
 		$(tableId + ' THEAD TR TH').remove(); // clear table header
-		$(tableId + ' THEAD TR').append('<th>Recent Words</th>');
+		$(tableId + ' THEAD TR').append('<th>Words</th>');
 		for (var i=0; i<playersArray.length; i++) { 
 			$(tableId + ' THEAD TR').append( // Add player names
 					'<th class="' + playersArray[i].id + '">' + playersArray[i].name + '</th>');	
@@ -508,7 +531,7 @@
 			}
 		}
 		else { // if this is the initial word from server
-			formattedWord = '<i>' + formattedWord + '</i>';
+//			formattedWord = '<i>' + formattedWord + '</i>';
 		}
 		html += formattedWord + '</td>';
 
@@ -517,7 +540,7 @@
 			//html += '<td class="' + playersArray[i].id + '">';
 			html += '<td>';
 			if (!id) { // if this is the initial word from server
-				html += '';
+				html += '-';
 			}
 			else {
 				if (!playersArray[i]) { // if player has left the game
@@ -586,12 +609,15 @@
 		if (myPinOrBan === ''){
 			formattedWord = data.currWord; // no formatting
 		}
-		else if (myPinOrBan === 'pin'){
-			formattedWord =  data.currWord.replace(myLetter, '<span class="pin">' + myLetter + '</span>'); 
+//		else if (myPinOrBan === 'pin'){
+		else {
+//			formattedWord =  data.currWord.replace(myLetter, '<span class="pin">' + myLetter + '</span>'); 
+			formattedWord =  data.currWord.replace(new RegExp(myLetter,'g'), '<span class="'+ myPinOrBan +'">' + myLetter + '</span>');
 		}
-		else if (myPinOrBan === 'ban'){
-			formattedWord =  data.currWord.replace(myLetter, '<span class="ban">' + myLetter + '</span>');
-		}
+//		else if (myPinOrBan === 'ban'){
+////			formattedWord =  data.currWord.replace(myLetter, '<span class="ban">' + myLetter + '</span>');
+//			formattedWord =  data.currWord.replace(new RegExp(myLetter,'g'), '<span class="ban">' + myLetter + '</span>');
+//		}
 		$('#word').html(formattedWord); // Display the formatted word
 		
 		showScreen('#game-screen'); // make game screen visible
@@ -756,7 +782,6 @@
 
 	
 	$('.ghost-button').on("touchstart", function () {
-		// $('h1').text("touchstart");
 		var isDisabled = $(this).prop('disabled');		
 		if(isDisabled) {
 			return false;
@@ -775,7 +800,7 @@
 	$('#room-input').on('input paste propertychange', function () {
 		var value = $('#room-input').val();
 		if(value.length <= 0) {
-			$('#join-btn').prop('disabled',true);
+			$('#join-btn').prop('disabled',true); // Disable if no game ID is entered
 			return;
 		}
 		$('#join-btn').prop('disabled',false);
@@ -845,7 +870,7 @@
 	
 	socket.on('error', error);
 	
-//};
-//
-//// Initial call
-//new App();
+};
+
+// Initial call
+new App();

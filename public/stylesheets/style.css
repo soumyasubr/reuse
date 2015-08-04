@@ -26,11 +26,11 @@ h1 {
 
 h2 {
 	/*font-size: 3em;	*/
-	/*font-weight: 300;*/
+/* 	font-weight: 110; */
 }
 
-h2 span {
-	font-weight: 100;
+h1 span {
+	font-weight: 101;
 }
 
 h3 {
@@ -213,10 +213,6 @@ ul {
 	font-size: 1.2em;
 }
 
-/* #numPlayers-input {
-	display: none;
-}
- */
 #create-join-btn-container,
 #start-btn-container,
 #pin-ban-container {
