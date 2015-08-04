@@ -1,4 +1,4 @@
-var App = function() {
+//var App = function() {
 	'use strict';
 	var socket = io.connect();
 	var	myName, // player name
@@ -342,27 +342,32 @@ var App = function() {
 		
 		// Display 'game-over' div and hide other divs.
 		showScreen('#game-over');
-		
-		if (winner.length === 1){
-			if (winner[0].id === socket.id){
-				text = 'Yoohoo! You Win';
-			}
-			else{
-				text = winner[0].name + ' wins';
-			}
-		}
-		else if (winner.length > 1){
-			//TODO: Update this logic
-			text = "It's a tie between ";
-			for (var i=0; i<winner.length; i++){
-				if (winner[i].id === socket.id){
-					text = text + "you and ";
+
+		if (winner) {
+			if (winner.length === 1){
+				if (winner[0].id === socket.id){
+					text = 'Yoohoo! You Win';
 				}
 				else{
-					text = text + winner[i].name + " and ";
+					text = winner[0].name + ' wins';
 				}
 			}
-			text = text.slice(0,-5); // remove last 5 characters - " and "
+			else if (winner.length > 1){
+				//TODO: Update this logic
+				text = "It's a tie between ";
+				for (var i=0; i<winner.length; i++){
+					if (winner[i].id === socket.id){
+						text = text + "you and ";
+					}
+					else{
+						text = text + winner[i].name + " and ";
+					}
+				}
+				text = text.slice(0,-5); // remove last 5 characters - " and "
+			}
+		}
+		else { // all others quit.. win by default
+			text = 'Yoohoo! You Win';
 		}
 		$("#game-over h3").text(text + '!');
 	}
@@ -633,6 +638,7 @@ var App = function() {
 	 * @param data
 	 */
 	function getNewTurnData(data) {
+
 		//Get data from the server and store in client memory
 		turnsArray.push({
 			word: data.currWord,
@@ -871,15 +877,18 @@ var App = function() {
 	socket.on('playerLeftRoom', playerLeftRoom );
 	
 	socket.on('gameOver', function(data) {
-		getNewTurnData(data);
-
-		updateScoreBoard (data.id,'#score-board');
+		if (!data.skipTurnProcessing) {
+			getNewTurnData(data);
+			updateScoreBoard (data.id,'#score-board');
+		}
 		gameOver(data);
+		stopTimer();
+		makeInactivePlayer();
 	});
 	
 	socket.on('error', error);
 	
-};
+//};
 
 // Initial call
-new App();
+//new App();

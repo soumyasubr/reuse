@@ -373,13 +373,17 @@ function computeWinner(roomId){
 /* Return socket ID of next player
  * @param: currPlayerId
 */
-function identifyNextPlayer(currPlayerId) {
-	var keys = Object.keys(games[roomLookup[currPlayerId]].players); // Get list of socket IDs in the room
-	if (keys.length === 1) { // If this is the only player in the room
-		return;
+function identifyNextPlayer(currPlayerId, room) {
+	try {
+		var keys = Object.keys(room.players); // Get list of socket IDs in the room
+		if (keys.length === 1) { // If this is the only player in the room
+			return;
+		}
+		var idx = (keys.indexOf(currPlayerId) + 1) % keys.length; // index of next player
+	    return keys[idx]; // ID of next player
 	}
-	var idx = (keys.indexOf(currPlayerId) + 1) % keys.length; // index of next player
-    return keys[idx]; // ID of next player
+	//TODO: Soumya know exactly what to do!
+	catch(err){}
 }
 
 
@@ -462,7 +466,7 @@ function nextTurn(data) {
         data.currPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.id].pinBanUsed; // number of pins/ bans left for current player
         
     	// Get next player info
-    	data.nextPlayerId = identifyNextPlayer(data.id); // Get ID of next player
+    	data.nextPlayerId = identifyNextPlayer(data.id, games[roomId]); // Get ID of next player
     	if (data.nextPlayerId !== undefined) { // If this is not the only player in the room
     		data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player //TODO: Don't send name
     		console.log('nextTurn. next player:', data.nextPlayerId, data.nextPlayerName);
@@ -547,58 +551,72 @@ function disconnect() {
 			currPlayerId = key;
 		}
 	}
+
+	removePlayer(); // delete player info
 	
 	// If the player that left did not have the active turn..
 	if (currPlayerId !== id) {
-		removePlayer(); // delete player info
-		console.log('DO NOTHING. not disconnected player\'s turn. ',currPlayerId);
+		console.log('not disconnected player\'s turn. ',currPlayerId);
+		var nextPlayerId = identifyNextPlayer(id, games[roomId]);
+		if (!nextPlayerId) { // handle game over only if there are no more players left!
+			handleGameOver(data, roomId);
+		}
 		return; // Do nothing more
 	}
 	
 	//**** If player who left had the active turn *****//
-	
+	var nextPlayerId = identifyNextPlayer(id, games[roomId]);
 	//TODO: Create function
-	if (!isGameOver(roomId)) { // If game is NOT over
+	console.log('nextPlayerId: ' + nextPlayerId);
+	if (!isGameOver(roomId) && nextPlayerId) { // If game is NOT over
 		
     	// Get next player info
-    	data.nextPlayerId = identifyNextPlayer(id); // Get ID of next player
-    	if (data.nextPlayerId !== undefined) { // If this is not the only player in the room
+    	//data.nextPlayerId = identifyNextPlayer(id); // Get ID of next player
+		data.nextPlayerId = nextPlayerId;
+		
+//    	if (data.nextPlayerId !== undefined) { // If this is not the only player in the room
     		data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player //TODO: Don't send name
     		console.log('in disconnect. next player:', data.nextPlayerId, data.nextPlayerName);
     	    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
     	    
     	    //Update player data on server
     	    games[roomId].players[data.nextPlayerId].turn++; // Update turn number for next player
-        	games[roomId].players[id].currPlayer = false;
+        	//games[roomId].players[id].currPlayer = false;
         	games[roomId].players[data.nextPlayerId].currPlayer = true;
     	   
     	    io.sockets.to(roomId).emit('activateNextPlayer', data); // Notify clients to skip to next player
     	    //console.log('data sent to client:', data);
-    	}
-    	else {
-    		//TODO: Handle only one player in room
-    		console.log ('disconnect: only 1 player in room');
-     		data.winner = computeWinner(roomId); // get winner info
-      		console.log('winner:', data.winner);
-      		games[roomId].state = 'ended';
-//      	//delete games[roomId]; // clean up array
-     		
-      		// Notify clients that game is over
-      		io.sockets.to(roomId).emit('error', {message: 'Ending game as all other players left :('});
-      		io.sockets.to(roomId).emit('gameOver', data); 
-    	}
+//    	}
+//    	else {
+//    		//TODO: Handle only one player in room
+//    		console.log ('disconnect: only 1 player in room');
+//     		data.winner = computeWinner(roomId); // get winner info
+//      		console.log('winner:', data.winner);
+//      		games[roomId].state = 'ended';
+////      	//delete games[roomId]; // clean up array
+//     		
+//      		// Notify clients that game is over
+//      		io.sockets.to(roomId).emit('error', {message: 'Ending game as all other players left :('});
+//      		io.sockets.to(roomId).emit('gameOver', data); 
+//    	}
     }
-    else { // If game is over
-  		data.winner = computeWinner(roomId); // get winner info
-  		console.log('winner:', data.winner);
-  		games[roomId].state = 'ended';
-//  	//delete games[roomId]; // clean up array
- 		
-  		// Notify clients that game is over
-  		io.sockets.to(roomId).emit('gameOver', data); 
+    else { 
+    	handleGameOver(data, roomId, nextPlayerId);
+//    	if (nextPlayerId !== undefined) {
+//    		console.log ('disconnect: only 1 player in room');
+//    		io.sockets.to(roomId).emit('error', {message: 'Ending game as all other players left :('});
+//    	}
+//    	else {
+//    		// If game is over
+//      		data.winner = computeWinner(roomId); // get winner info
+//      		console.log('winner:', data.winner);
+//    	}
+//  		games[roomId].state = 'ended';
+////  	//delete games[roomId]; // clean up array
+// 		
+//  		// Notify clients that game is over
+//  		io.sockets.to(roomId).emit('gameOver', data); 
     }
-	
-	removePlayer();
 	
 	/**
 	 * Removes player from room and deletes player info from server
@@ -618,6 +636,26 @@ function disconnect() {
 	}
 }
 
+
+function handleGameOver(data, roomId, nextPlayerId) {
+	if (nextPlayerId !== undefined) {
+		console.log('only 1 player in room');
+		io.sockets.to(roomId).emit('error', {
+			message : 'Ending game as all other players left :('
+		});
+	} 
+	else { // If game is over
+		data.winner = computeWinner(roomId); // get winner info
+		data.skipTurnProcessing = true; // Set flag to skip word processing on client
+		console.log('winner:', data.winner);
+	}
+	games[roomId].state = 'ended';
+	//delete games[roomId]; // clean up array
+
+	console.log(data);
+	// Notify clients that game is over
+	io.sockets.to(roomId).emit('gameOver', data);
+}
 
 // Using 'exports' makes this function available to other files once imported
 exports.initGame = function(sio, socket) {
