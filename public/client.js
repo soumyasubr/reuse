@@ -491,7 +491,6 @@ var App = function() {
 		$(divId).show();
 	}
 
-	
 	/**
 	 * Initializes the score board. Populates header with player names.
 	 * @param: tableID
@@ -722,6 +721,16 @@ var App = function() {
 	
 	$('#play-again-btn').on('click', function() {
 		showScreen('#lobby');
+	});
+
+	$('#how-to-play-btn').on('click',function(e){
+		e.preventDefault();
+		showScreen("#help");
+	});
+
+	$('#close-btn').on('click',function(e){
+		e.preventDefault();
+		showScreen("#home");
 	});
 	
 	$('#name-input').keypress(function(e) {

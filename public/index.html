@@ -35,10 +35,83 @@
 							<input id='room-input' type="number" min="0" inputmode="numeric" pattern="[0-9]*" placeholder="Game #" class='holo'></input>
 							<button id="join-btn" type="button" class="ghost-button" disabled='disabled'>Join</button>
 						</div>
+						<p class="margin-top center"><a id="how-to-play-btn" href="#">[How to Play]</a></p>
 					</div>
 					<div class="pure-u-1 pure-u-md-1-5 pure-u-lg-1-3"> </div>
 				</div>
 	    	</div> 
+
+	    	<!-- - - - - - - - - - - - - - - - - - - - -  -->
+	    	<!-- Help view (How to play, and scoring)	  -->
+	    	<!-- - - - - - - - - - - - - - - - - - - - -  -->
+
+			<div id="help" class="scene">
+				<div class="pure-g">
+					<div class="pure-u-1 pure-u-md-1-5 "> </div>
+					<div class="pure-u-1 pure-u-md-3-5 container"> 
+
+						<div id="close-btn-container">
+							<button id="close-btn" type="button" class="ghost-button">Close</button>
+						</div>
+
+						<h2 class="margin-top">How to play</h2>
+
+						<div id="rules-list" class="pure-g">
+							<div class="pure-u-1-1 pure-u-sm-1-2">The initial word is given by the computer.</div>
+							<div class="pure-u-1-1 pure-u-sm-1-2"><img src="images/rule-image-01.png" alt="rule image 01" /></div>
+							<div class="pure-u-1-1 pure-u-sm-1-2">
+								Players take turns to make a word by reusing one
+								or more letters from the previous word. 
+								A player gets 10 points for every letter in the 
+								fragment that is reused.
+							</div>
+							<div class="pure-u-1-1 pure-u-sm-1-2"><img src="images/rule-image-02.png" alt="rule image 02" /></div>
+							<div class="pure-u-1-1 pure-u-sm-1-2">
+								The new word cannot be a subset of the previous
+								word. A player must add at least one letter during 
+								their turn. 
+								No points are awarded for the new letters added
+							</div>
+							<div class="pure-u-1-1 pure-u-sm-1-2"><img src="images/rule-image-03.png" alt="rule image 03" /></div>
+							<div class="pure-u-1-1 pure-u-sm-1-2">
+								Only contiguous letters are taken into account for
+								scoring. When more than one fragment is reused, 
+								the longer one will be considered for scoring.
+								In this example, B and L do not fetch any points.
+							</div>
+							<div class="pure-u-1-1 pure-u-sm-1-2"><img src="images/rule-image-04.png" alt="rule image 04" /></div>
+							<div class="pure-u-1-1 pure-u-sm-1-2">
+								Letters may be “pinned” or “banned” during a
+								turn. A letter that is pinned must compulsorily be 
+								used in the next word (not necessarily in the 
+								same position). A letter that is banned cannot be 
+								used in the next word. Each player can only 
+								initiate 3 challenges (pin or ban) in a game. Pin 
+								and Ban cannot be used in the same turn.
+								
+								<p>
+									In this example, letter B is pinned in the 4th turn 
+									and letter I is banned in the 5th turn. There are no 
+									extra points for pinned or banned letters
+								</p>
+							</div>
+							<div class="pure-u-1-1 pure-u-sm-1-2"><img src="images/rule-image-05.png" alt="rule image 05" /></div>
+							<div class="pure-u-1-1 pure-u-sm-1-2">
+								The game ends when each player has played 5
+								turns each. The player with the highest score 
+								wins.
+								<p>
+									The final score is the points earned by the player 
+									in all turns combined.
+								</p>
+							</div>
+							<div class="pure-u-1-1 pure-u-sm-1-2"></div>
+						</div>
+
+					</div>
+					<div class="pure-u-1 pure-u-md-1-5"> </div>
+				</div>
+			</div>
 
 			<!-- - - - - - - - - - - - - - - - - - - - -  -->
 	    	<!-- Lobby view i.e. Wait for players to join -->

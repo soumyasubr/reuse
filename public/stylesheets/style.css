@@ -25,7 +25,7 @@ h1 {
 }
 
 h2 {
-	/*font-size: 3em;	*/
+	font-size: 3em;	
 /* 	font-weight: 110; */
 }
 
@@ -38,7 +38,6 @@ h3 {
 }
 
 p {
-/* 	color: #a9a9a9; */
 	color: #007AFF;
 	font-weight: 300;
 	font-size: 0.9em;
@@ -283,6 +282,53 @@ ul {
 
 }
 
+#help .margin-top {
+	margin-top: 75px;
+}
+
+#help p {
+	color: #000;
+	font-weight: 300;
+	font-size: 1em;
+	padding: 0px;
+}
+
+#rules-list div{
+	text-align: justify;
+	margin-bottom: 20px;
+}
+
+#rules-list div:nth-child(even) {
+	text-align: center;	
+}
+
+
+#close-btn-container {
+    height: 60px;
+    width: inherit;
+    background: #FFF;
+    position: fixed;
+}
+
+#close-btn {
+	position: fixed;
+    width: inherit;
+    top:15px;
+}
+
+a {
+	color: #007AFF;
+	font-weight: 400;
+	text-decoration: none;
+	font-size: 1.2em;
+	word-spacing: 4px;
+	text-decoration: none;
+}
+
+a:hover {
+	color: #79B9FF;	
+}
+
 @media screen and (min-width: 64em) {
 	.ghost-button:hover {
 		background-color: #007AFF;
@@ -303,6 +349,12 @@ ul {
 		background-color: #007AFF;
 		color: #FFF;
 		transition: background-color 0.0s ease-in, color 0.1s ease-in;
+	}
+
+	#help .container {
+		width: 90%;
+		margin-left: auto;
+		margin-right: auto;
 	}
 	
 
