@@ -15,9 +15,6 @@
 
 	//Display the landing page with Create and Join buttons
 	showScreen('#home');
-	// showScreen('#game-screen');
-	// showScreen('#game-over');
-
 	
 	/**
 	 * Requests server to create a new game
@@ -111,7 +108,13 @@
 	 * Enables Start button only if at least 2 players are present
 	 */
 	function checkStartStatus() {
-		if (playersArray.length >= 2) { // If at least 2 players are in the room
+		var count = 0;
+		for (var i=0; i<playersArray.length; i++) {
+			if (playersArray[i]) {
+				count++;
+			}
+		}
+		if (count >= 2) { // If at least 2 players are in the room
 			$('#start-btn').prop('disabled', false); // Enable start button
 		}
 		else {
@@ -436,7 +439,6 @@
 		$('#word-input').prop('disabled',false);
 		$('#submit-btn').prop('disabled',false);
 		$('.pin-ban-rdo').prop('disabled',false);
-		//TODO: # of pins/ bans left
 		if (pinBanLeft === 0) { // disable radio button if no more pin/ ban left
 			$('.pin-ban-rdo').prop('disabled',true);
 		}
@@ -520,7 +522,7 @@
 	function updateScoreBoard(id, tableId) {	
 		var html,
 			formattedWord,
-			i,
+//			i,
 			numCols = $(tableId + ' THEAD TR TH').length; // # of columns in header
 
 
@@ -540,7 +542,7 @@
 		html += formattedWord + '</td>';
 
 		// populate score
-		for (i=0; i < numCols - 1; i++) { // use # columns in header as reference
+		for (var i=0; i < numCols - 1; i++) { // use # columns in header as reference
 			//html += '<td class="' + playersArray[i].id + '">';
 			html += '<td>';
 			if (!id) { // if this is the initial word from server
@@ -548,7 +550,7 @@
 			}
 			else {
 				if (!playersArray[i]) { // if player has left the game
-					html += '<i>---</i>'; //enter '---' instead of score
+					html += '---'; //enter '---' instead of current score
 				}
 				else { // if player is still in the game
 					if (id == playersArray[i].id) { // if player's turn
@@ -565,16 +567,27 @@
 		$(tableId + ' TBODY').append(html);
 
 		
-		//*** Display total scores ***//
+		updateTotalScore(tableId)  // Display total scores
+	}
+	
+	
+	/**
+	 * Update totals in scoreboard
+	 * @param tableId
+	 */
+	function updateTotalScore(tableId) {
+		var html;
+		var numCols = $(tableId + ' THEAD TR TH').length; // # of columns in header
+
 		$(tableId + ' .total').remove(); // remove existing total row
 		
 		// Create html for new row containing total scores
 		html = '<tr class="total">' +
 	 				'<td>TOTAL</td>';
-		for (i=0; i < numCols - 1; i++) { // use number of columns in header as reference
+		for (var i=0; i < numCols - 1; i++) { // use number of columns in header as reference
 			html += '<td>';
 			if (!playersArray[i]) { // if player left the game
-				html += '<i>---</i>';
+				html += '---';
 			}
 			else { // if player is still in the game
 				html +=(playersArray[i].totalScore ? playersArray[i].totalScore : 0 ); // convert undefined to 0
@@ -587,7 +600,9 @@
 	
 	
 	/**
-	 * 
+	 * Truncate table to show only the specified number of rows
+	 * @param tableId
+	 * @param maxRows
 	 */
 	function truncateScoreBoard(tableId, maxRows) {
 		var numRows = $(tableId + ' TBODY TR').length;
@@ -613,15 +628,10 @@
 		if (myPinOrBan === ''){
 			formattedWord = data.currWord; // no formatting
 		}
-//		else if (myPinOrBan === 'pin'){
 		else {
-//			formattedWord =  data.currWord.replace(myLetter, '<span class="pin">' + myLetter + '</span>'); 
 			formattedWord =  data.currWord.replace(new RegExp(myLetter,'g'), '<span class="'+ myPinOrBan +'">' + myLetter + '</span>');
 		}
-//		else if (myPinOrBan === 'ban'){
-////			formattedWord =  data.currWord.replace(myLetter, '<span class="ban">' + myLetter + '</span>');
-//			formattedWord =  data.currWord.replace(new RegExp(myLetter,'g'), '<span class="ban">' + myLetter + '</span>');
-//		}
+
 		$('#word').html(formattedWord); // Display the formatted word
 		
 		showScreen('#game-screen'); // make game screen visible
@@ -719,7 +729,10 @@
 		// Show confirm dialog 
 		if(confirm('Leave Game # ' + myRoomId + '?')) {
 		    //Ok button pressed
+			playersArray = [];
+			turnsArray = [];
 			$('#room-input').val('');
+			
 			showScreen('#home');
 			socket.emit('leaveGame');
 		}
@@ -742,10 +755,7 @@
 	$('#name-input').keypress(function(e) {
 	    if(e.keyCode === 13) {
 	    	var value = $('#room-input').val();
-	    	if (value.length <= 0) {
-	    		//createGame();
-	    	}
-	    	else {
+	    	if (value.length > 0) {
 	    		joinGame();
 	    	}
 	    }
@@ -881,6 +891,7 @@
 			getNewTurnData(data);
 			updateScoreBoard (data.id,'#score-board');
 		}
+		updateTotalScore('#score-board');
 		gameOver(data);
 		stopTimer();
 		makeInactivePlayer();
