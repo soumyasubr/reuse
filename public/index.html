@@ -29,10 +29,16 @@
 						<h1>reuse</h1>
 						<p class="status"></p>
 						<input id='name-input' type="text" placeholder="Your name?" class='holo side-borders'></input>
+						
 						<div id="create-join-btn-container" class="margin-top">
-							<button id="create-btn" type="button" class="ghost-button">Create</button>
-							<p>(or)</p>	 
-							<input id='room-input' type="number" min="0" inputmode="numeric" pattern="[0-9]*" placeholder="Game #" class='holo'></input>
+								<select id="numPlayers-input">
+									<option value="2">2 players</option>
+									<option value="3">3 players</option>
+									<option value="4"  selected="selected">4 players</option>
+								</select>
+								<button id="create-btn" type="button" class="ghost-button">Create</button>
+							<p>(or)</p>
+								<input id='room-input' type="number" min="0" inputmode="numeric" pattern="[0-9]*" placeholder="Game #" class='holo'></input>
 							<button id="join-btn" type="button" class="ghost-button" disabled='disabled'>Join</button>
 						</div>
 						<p class="margin-top center"><a id="how-to-play-btn" href="#">[How to Play]</a></p>

@@ -214,7 +214,8 @@ ul {
 
 #create-join-btn-container,
 #start-btn-container,
-#pin-ban-container {
+#pin-ban-container,
+#numPlayers-container {
 	text-align: center;
 }
 

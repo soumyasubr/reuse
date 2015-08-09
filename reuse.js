@@ -42,7 +42,7 @@ function loadWordLists() {
  * Creates a new room ID and places client in room
  *  @param: playerName
  */
-function createNewGame(playerName) {
+function createNewGame(input) {
 	var roomId,
 	 	room,
 	 	id = this.id;
@@ -60,9 +60,10 @@ function createNewGame(playerName) {
 	// Store room and client data as in-memory objects
 	games[roomId] = {};
 	games[roomId].state = 'waiting';
+	games[roomId].numPlayers = input.numPlayers;
 	games[roomId].players = {};
 	games[roomId].players[id] = {
-					name: playerName,
+					name: input.playerName,
 					turn: 0,
 					totalScore: 0,
 					pinBanUsed: 0,
@@ -72,16 +73,16 @@ function createNewGame(playerName) {
 	
 	var data = {
 			roomId: roomId,
-			playerName: playerName,
+			playerName: input.playerName,
 			playersArray: [],
 	};
 	data.playersArray.push({id: id,
-							name: playerName
+							name: input.playerName
 	});
 	
     // Notify client that they have joined a room
     io.sockets.to(id).emit('playerJoinedRoom', data);  
-    console.log(playerName, 'created Game', roomId);
+    console.log(input.playerName, 'created Game', roomId);
 }
 
 
@@ -111,7 +112,8 @@ function joinExistingGame(data) {
 		return;
 	}
 	
-	if (Object.keys(room).length >= config.MAX_PLAYERS) { //If # clients in room > max permitted
+//	if (Object.keys(room).length >= config.MAX_PLAYERS) { //If # clients in room > max permitted
+	if (Object.keys(room).length >= games[data.roomId].numPlayers) { //If # clients in room > max permitted
 		// Notify requesting client that room is full
 		io.sockets.to(this.id).emit('error', {
 				processStep: 'join',

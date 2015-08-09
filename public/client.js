@@ -32,7 +32,10 @@
 		
 		myName = name; // Store name on client
 		
-	    socket.emit('createNewGame',myName);
+	    socket.emit('createNewGame',{
+	    				playerName: myName,
+	    				numPlayers: $('#numPlayers-input').val()
+	    });
 	}
 	    
 	
