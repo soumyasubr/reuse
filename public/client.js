@@ -1,27 +1,34 @@
 //var App = function() {
 	'use strict';
-	var socket = io.connect();
-	var	myName, // player name
-		myRoomId, // player room
+	var socket = io.connect(),
+		myName, 	// player name
+		myRoomId, 	// player room
 		myPinOrBan, // pin or ban challenge for current turn
 		myLetter, 	// letter pinned or banned for current turn
-		myTimerId, // timer handler
+		myTimerId, 	// timer handler
 		turnsArray = [], // array with data for each turn
 		playersArray;
-	
-	var MAX_TIME = 60; // Temporary config for testing.
 
-	//TODO: Avoid sending player name from server as it is available in playersArray.
-
-	//Display the landing page with Create and Join buttons
+	//Display home page
 	showScreen('#home');
 	
+	
 	/**
-	 * Requests server to create a new game
+	 * Hide other divs and show the specified divs.
+	 * @param divID ID of div to show 
+	 */
+	function showScreen(divId) {
+		$('.scene').hide();
+		$(divId).show();
+	}
+	
+	
+	/**
+	 * Requests server to create a new game for specified number of players.
 	 */
 	function createGame() {
 		var name = $('#name-input').val().trim() || 'Anonymous';
-		if (!/^[A-Za-z0-9 ]+$/.test(name)) { 
+		if (!/^[A-Za-z0-9 ]+$/.test(name)) { // Name cannot contain special characters
 			showMessage({
 				message: 'Name cannot contain special characters.',
 				type: 'error',
@@ -29,22 +36,20 @@
 			});
 			return;
 		}
-		
 		myName = name; // Store name on client
-		
 	    socket.emit('createNewGame',{
-	    				playerName: myName,
-	    				numPlayers: $('#numPlayers-input').val()
+				playerName: myName,
+				numPlayers: $('#numPlayers-input').val()
 	    });
 	}
 	    
 	
 	/**
-	 * Requests server to join the specified game
+	 * Requests server to join the specified game.
 	 */
 	function joinGame() {
 		var name = $('#name-input').val().trim() || 'Anonymous';
-		if (!/^[A-Za-z0-9 ]+$/.test(name)) { 
+		if (!/^[A-Za-z0-9 ]+$/.test(name)) { // Name cannot contain special characters
 			showMessage({
 				message: 'Name cannot contain special characters.',
 				type: 'error',
@@ -52,30 +57,31 @@
 			});
 			return;
 		}
-		
 		myName = name; // Store name on client
-		
 	    socket.emit('joinExistingGame', {
-	    	playerName: myName, 
-			roomId: $('#room-input').val()
+		    	playerName: myName, 
+				roomId: $('#room-input').val()
 	    });
 	}
 	
 	
 	/**
-	 * Updates lobby as players join the game
-	 * @param - data - Object received from server
+	 * Updates lobby as players join the game.
+	 * @param {Object} data
+	 * @param {String} data.playerName
+	 * @param {Number} data.roomId
+	 * @param {Array} data.playersArray
 	 */
 	function playerJoinedRoom(data) {
 		myRoomId = data.roomId;
 		playersArray = data.playersArray;
 		
 		if (playersArray.length === 1) { // If this is the host (first person to join room)
-			$('#lobby h3').html('Hello, ' + data.playerName + 
+			$('#lobby h3').html('Hello, ' + playersArray[0].name + 
 								'!<br>Invite your friends to a game.<br>' +
 								'Game ID: ' + myRoomId + '.');
 		}
-		else { // If this is someone joining the game
+		else { // If this is not host
 			if (socket.id === data.id) { // To player who just joined..
 				$('#lobby h3').html('Hello, ' + data.playerName + 
 									"! <br> You've joined Game " + myRoomId + '.'); // Display message
@@ -95,68 +101,141 @@
 	
 	
 	/**
-	 * Updates the list of players in the room
+	 * Get data for the current turn from the server and update client.
+	 * @param {Object} data
+	 * @param {String} data.id
+	 * @param {String} data.currWord
+	 * @param {String} data.reusedFragment
+	 * @param {String} data.pinOrBan
+	 * @param {String} data.letter
+	 * @param {String} data.playerName
+	 * @param {Number} data.currScore
+	 * @param {Number} data.totalScore
 	 */
-	function updatePlayerList() {
-		$('#players-list TBODY TR').remove(); // empty table
-		for (var i=0; i<playersArray.length; i++) { // populate player names from playersArray
-			if (playersArray[i]) {
-				$('#players-list TBODY').append('<tr><td>' + playersArray[i].name + '</td></tr>');	
+	function getNewTurnData(data) {
+		try {
+			//Get data from the server and store in client memory
+			turnsArray.push({
+				word: data.currWord,
+				formattedWord:  data.currWord.replace(data.reusedFragment, // Apply blue color to re-used fragment
+								'<span class="reused">' + 
+								data.reusedFragment + '</span>'),
+				id: data.id,
+				playerName: data.playerName,
+				score: data.currScore
+			});
+			for (var i=0; i<playersArray.length; i++) {
+				if (playersArray[i] && playersArray[i].id == data.id) {
+					playersArray[i].totalScore = data.totalScore;
+				}
 			}
+			myPinOrBan = data.pinOrBan;
+			myLetter = data.letter; 
+		}
+		catch(err){};
+	}
+	
+	
+	/**
+	 * Prepare game screen for new turn - updates word and other information.
+	 * @param {Object} data
+	 * @param {String} data.id
+	 * @param {String} data.currWord
+	 * @param {Number} data.currPinBanLeft
+	 * @param {String} data.nextPlayerId
+	 * @param {String} data.nextPlayerName
+	 * @param {Number} data.nextPinBanLeft
+	 */
+	function updateUI(data) {
+		var formattedWord;
+
+		resetGameUI(); // Reset elements on game screen
+		showScreen('#game-screen'); // make game screen visible
+		
+		// Display word
+		if (myPinOrBan === 'pin' || myPinOrBan === 'ban'){
+			formattedWord =   data.currWord.replace(new RegExp(myLetter,'g'), '<span class="'+ myPinOrBan +'">' + myLetter + '</span>'); // Apply green/ red color to pinned/ banned letter
+		}
+		else {
+			formattedWord =  data.currWord; // no formatting
+		}
+		$('#word').html(formattedWord);
+		fitWord(); // Fit word to screen size. This has to be done AFTER game-screen is visible
+		
+		// Update pin/ ban left
+		if (data.id == undefined) { // if first round (i.e. word was not generated by another client) 
+			$('#pin-ban-left').text('(' + data.currPinBanLeft + ' left)'); //update number of pins/ bans available for all players
+			initScoreBoard('#score-board'); // create score board structure. populate player names.
+		}
+		else if (data.id == socket.id) {
+			$('#pin-ban-left').text('(' + data.currPinBanLeft + ' left)'); //update number of pins/ bans only for previous player
+		}
+		
+		//Update word list + scores
+		updateScoreBoard (data.id,'#score-board'); // add the last word received to the score board
+		$('#recent-words').html($('#score-board').html()); // create a copy of score board to show at the bottom of game screen
+		truncateScoreBoard('#recent-words', 4); //truncate recent words table to show only 4 rows (3 words + TOTAL row)
+	}
+	
+	
+	/**
+	 * Activate next player and publish next player's name to other players.
+	 * @param {Object} data
+	 * @param {String} data.nextPlayerId
+	 * @param {String} data.nextPlayerName
+	 * @param {Number} data.nextPinBanLeft
+	 */
+	function activateNextPlayer(data) {
+		if (data.nextPlayerId != socket.id) {
+			$('#word-input').prop('placeholder', data.nextPlayerName + "'s turn."); // show prompt
+		}
+		// Enable UI for next player
+		else {
+			makeActivePlayer(data.nextPinBanLeft); // Enable UI
 		}
 	}
 	
 	
 	/**
-	 * Enables Start button only if at least 2 players are present
-	 */
-	function checkStartStatus() {
-		var count = 0;
-		for (var i=0; i<playersArray.length; i++) {
-			if (playersArray[i]) {
-				count++;
+	 * 	Start timer for specified duration (seconds) 
+	 * and execute callback once timer has expired.
+	 * @param {String} elemId
+	 * @param {Number} time
+	 * @param {Function} callback
+	 */	
+	function startTimer( elemId, time, callback) {
+		function countdown() {
+			if (time > 0) { // Timer is running
+				time--;
+				$(elemId).text('0:' + time);
 			}
+			else { // Timer expired
+				console.log('Time is up', myTimerId);
+				callback(); 
+			} 
 		}
-		if (count >= 2) { // If at least 2 players are in the room
-			$('#start-btn').prop('disabled', false); // Enable start button
-		}
-		else {
-			$('#start-btn').prop('disabled', true); // Disable start button
-		}
+		
+		myTimerId = setInterval(countdown, 1000); // Set a timer with 1s interval. Call countdown at every tick.		
+		console.log('Timer started', myTimerId);
 	}
 	
-	
-	/** 
-	 * Checks if at least one letter is reused between the 2 strings
-	 * @param: string1, string2
-	 */
-	function isFragmentReused(string1, string2) {
-		var shortWord,
-		 	longWord,
-		 	i = 0,
-		 	isReused=false;
-		if (string1.length < string2.length) {
-			shortWord = string1;
-			longWord = string2;
-		}
-		else {
-			shortWord = string2;
-			longWord = string1;
-		}
-		do {
-			isReused = (longWord.indexOf(shortWord.substr(i,1)) > -1);
-			i++;
-		}
-		while (!isReused && i<shortWord.length);
-		return isReused;
-	}
 	
 	/**
-	 * Sends player's response (word + other info) to the server 
+	 * Stops and resets timer.
+	 */
+	function stopTimer() {
+		clearTimeout(myTimerId);
+		$("#timer").text('1:00');
+		console.log('Timer stopped', myTimerId);
+	}
+	
+	
+	/**
+	 * Sends player's response (word + other info) to the server.
 	 */
 	function sendPlayerResponse() {
-		//TODO: get prev turn data from turnsArray instead
-		var prevWord = $("#word").text();
+		//var prevWord = $("#word").text();
+		var prevWord = turnsArray[turnsArray.length - 1].word; // word from previous turn
 		
 		// Current turn data
 		var currWord = $('#word-input').val().toUpperCase().trim();
@@ -165,9 +244,8 @@
 		
 		// If user input is valid, request server to validate against dictionary and prepare next turn
 		if (validateResponse()) {
-			var data = {
-					//roomId: myRoomId, //instead, identify on server using roomLookup
-					//playerName: myName, // instead, identify name on server using socket ID
+//			var data = {
+			socket.emit('nextTurn', {
 					currWord: currWord,
 					prevWord: prevWord,
 					pinOrBan: myPinOrBan,  //TODO: place this in turnsArray
@@ -175,121 +253,121 @@
 					nextPinOrBan: pb,
 					nextLetter: l,
 					id: socket.id
-			};
-			socket.emit('nextTurn',data);
-			console.log('Request server to validate response', data);
+			});
+//			socket.emit('nextTurn',data);
 		}
 		
 
-		/** 
-		 * Validates the input word. If word is valid, then pin ban input is validated. 
-		 * (within scope of sendPlayerResponse)
-		 */	
-		function validateResponse() {
-			var valid = true;
-			var message = '';
-			
-			// Check for special case. If player passed turn, then word is '-'
-			if (currWord === '-') {
-				return true;
-			}
-			
-			// If word was entered
-			if(currWord.length > 0) {
-			
-				// Check for spaces or special characters
-				if (!/^[A-Z]+$/.test(currWord)) { 
-					message = 'Word can only contain letters. No spaces or special characters.';
-					valid = false;
+			/** 
+			 * Validates the input word; If word is valid, then pin ban input is validated. 
+			 * (within scope of sendPlayerResponse)
+			 * @returns {Boolean}
+			 */	
+			function validateResponse() {
+				var valid = true;
+				var message = '';
+				
+				// Check for special case. If player passed turn, then word is '-'
+				if (currWord === '-') {
+					return true;
 				}
-			
-				// Check if at least one letter is reused
-				if (!isFragmentReused(currWord, prevWord)){
-					message += '<br>Must reuse at least one letter from the previous word.';
+				
+				// If word was entered
+				if(currWord.length > 0) {
+				
+					// Check for spaces or special characters
+					if (!/^[A-Z]+$/.test(currWord)) { 
+						message = 'Word can only contain letters. No spaces or special characters.';
+						valid = false;
+					}
+				
+					// Check if at least one letter is reused
+					if (!isFragmentReused(currWord, prevWord)){
+						message += '<br>Must reuse at least one letter from the previous word.';
+						valid = false;
+					}
+					
+					// Check if the word has been played before
+					var pastWords = turnsArray.map(function(obj) {
+						return obj.word;
+					});
+					if (pastWords.indexOf(currWord) > -1) { // if currWord is contained in pastWords 
+						message += '<br>' + currWord + ' has already been played.';
+						valid = false;
+					}
+					
+					// Check if word is subset of previous word
+					else if (prevWord.indexOf(currWord) > -1){ // if currWord is contained in prevWord
+						message += '<br>Word cannot be a subset of the previous word.';
+						valid = false;
+					} 
+				
+					// Check if word contains the pinned letter
+					if (myPinOrBan === 'pin') {
+						if (currWord.indexOf(myLetter) === -1){ // if pinned letter is NOT contained in currWord
+							message += '<br>Word should contain the pinned letter: ' + myLetter + '.';
+							valid = false;
+						} 
+					}
+					
+					// Check if word contains the banned letter
+					else if (myPinOrBan === 'ban'){
+						if (currWord.indexOf(myLetter) > -1){ // if banned letter is contained in currWord
+							message += '<br>Word should not contain the banned letter: ' + myLetter + '.';
+							valid = false;
+						} 
+					}
+				}
+				else { // If no word was entered
+					message = 'Enter a word.';
 					valid = false;
 				}
 				
-				// Check if the word has been played before
-				var pastWords = turnsArray.map(function(obj) {
-					return obj.word;
+				showMessage ({ // display message
+					screen: '#game-screen',
+					message: message,
+					type:'error'
 				});
-				if (pastWords.indexOf(currWord) > -1) { // if currWord is contained in pastWords 
-					message += '<br>' + currWord + ' has already been played.';
-					valid = false;
+				
+				// If word is invalid, don't validate pin/ ban yet
+				if (!valid) {  
+					return false; 
 				}
 				
-				// Check if word is subset of previous word
-				else if (prevWord.indexOf(currWord) > -1){ // if currWord is contained in prevWord
-					message += '<br>Word cannot be a subset of the previous word.';
-					valid = false;
-				} 
+				
+				//*** Validate pin/ ban input***//
 			
-				// Check if word contains the pinned letter
-				if (myPinOrBan === 'pin') {
-					if (currWord.indexOf(myLetter) === -1){ // if pinned letter is NOT contained in currWord
-						message += '<br>Word should contain the pinned letter: ' + myLetter + '.';
+				// If Pin/ Ban is selected
+				if ($(".pin-ban-rdo").is(':checked')) {
+					pb = $(".pin-ban-rdo:checked").val();
+					
+					// Check if letter is entered
+					if(l.length === 0) { 
+						message = 'You have selected ' + pb + '. Enter a letter from your word to ' + pb +'. ';
 						valid = false;
-					} 
-				}
-				
-				// Check if word contains the banned letter
-				else if (myPinOrBan === 'ban'){
-					if (currWord.indexOf(myLetter) > -1){ // if banned letter is contained in currWord
-						message += '<br>Word should not contain the banned letter: ' + myLetter + '.';
+					}
+					
+					// Check if more than one letter is entered
+					else if (l.length > 1) { 
+						message = 'Enter only ONE letter to pin/ ban. ';
 						valid = false;
-					} 
-				}
-			}
-			else { // If no word was entered
-				message = 'Enter a word.';
-				valid = false;
-			}
-			
-			showMessage ({ // display message
-				screen: '#game-screen',
-				message: message,
-				type:'error'
-			});
-			
-			// If word is invalid, don't validate pin/ ban yet
-			if (!valid) {  
-				return false; 
-			}
-			
-			
-			//*** Validate pin/ ban input***//
-		
-			// If Pin/ Ban is selected
-			if ($(".pin-ban-rdo").is(':checked')) {
-				pb = $(".pin-ban-rdo:checked").val();
-				
-				// Check if letter is entered
-				if(l.length === 0) { 
-					message = 'You have selected ' + pb + '. Enter a letter from your word to ' + pb +'. ';
-					valid = false;
+					}
+					
+					// Check if letter exists in current word
+					else if (currWord.indexOf(l) === -1) { // if letter does not exist in current word
+						message = 'Letter should be in the word ' + currWord + '. ';
+						valid = false;
+					}
 				}
 				
-				// Check if more than one letter is entered
-				else if (l.length > 1) { 
-					message = 'Enter only ONE letter to pin/ ban. ';
-					valid = false;
-				}
-				
-				// Check if letter exists in current word
-				else if (currWord.indexOf(l) === -1) { // if letter does not exist in current word
-					message = 'Letter should be in the word ' + currWord + '. ';
-					valid = false;
-				}
-			}
-			
-			showMessage ({ // display message
-				screen: '#game-screen',
-				message: message,
-				type:'error'
-			});
-
-			return valid;
-		} // validateResponse ends
+				showMessage ({ // display message
+					screen: '#game-screen',
+					message: message,
+					type:'error'
+				});
+	
+				return valid;
+			} // validateResponse ends
 	}
 	
 	
@@ -377,46 +455,15 @@
 		}
 		$("#game-over h3").text(text + '!');
 	}
+
+
 	
 	
 	/**
-	 * Stop timer
-	 */
-	function stopTimer() {
-		clearTimeout(myTimerId);
-		$("#timer").text('1:00');
-		console.log('Timer stopped', myTimerId);
-	}
-	
-	/**
-	 * 	Start timer
-	 */	
-	function startTimer( elemId, time, callback) {
-		function countdown() {
-			if (time > 0) { // Timer is running
-				time--;
-				$(elemId).text('0:' + time);
-			}
-			else { // Timer expired
-				
-				//stopTimer(); //TODO: Do this here to avoid delay from server??
-				
-				console.log('Time is up', myTimerId);
-				callback(); // Do the callback
-			} 
-		}
-		
-		myTimerId = setInterval(countdown, 1000); // Set a timer with 1s interval. Call countdown at every tick.		
-		console.log('Timer started', myTimerId);
-	}
-	
-	
-	/**
-	 * Passes current player's turn as timer expired. Sends data for passed turn to server.
+	 * Passes current player's turn and sends empty word to server.
+	 * @param {String} playerId
 	 */
 	function passTurn(playerId) {
-		//makeInactivePlayer(); // TODO: Disable UI here to avoid delay from server??
-		
 		// Send passed turn data to server
 		resetGameUI(); //reset elements on game screen 
 		$('#word-input').val('-'); // Set word as '-' for passed turn
@@ -435,7 +482,7 @@
 	
 	/**
 	 * Enables form elements. Applies color formatting.
-	 * @param pinBanLeft
+	 * @param {Number} pinBanLeft
 	 */
 	function makeActivePlayer(pinBanLeft) {
 		//Enable form elements
@@ -462,10 +509,8 @@
 	
 	
 	/**
-	 * Disable form elements. Removes color formatting.
-	 * @param
+	 * Disable form elements and removes color formatting.
 	 */
-
 	function makeInactivePlayer() {
 		// Disable form elements
 		$('#word-input').prop('disabled',true);
@@ -476,9 +521,6 @@
 		$('#word').removeClass('reused'); // Make word black for inactive player
 		$('#pin').removeClass('pin');
 		$('#ban').removeClass('ban');
-		
-		// Display prompt
-//		$('#word-input').prop('placeholder', nextPlayerName + "'s turn.");
 	}
 	
 	
@@ -492,114 +534,7 @@
 	}
 	
 	
-	/**
-	 * Hide other divs and show the specified divs.
-	 * @param divID ID of div to show 
-	 */
-	function showScreen(divId) {
-		$('.scene').hide();
-		$(divId).show();
-	}
 
-	/**
-	 * Initializes the score board. Populates header with player names.
-	 * @param: tableID
-	 */
-	function initScoreBoard(tableId) {
-		// Populate table header
-		$(tableId + ' THEAD TR TH').remove(); // clear table header
-		$(tableId + ' THEAD TR').append('<th>Words</th>');
-		for (var i=0; i<playersArray.length; i++) { 
-			$(tableId + ' THEAD TR').append( // Add player names
-					'<th class="' + playersArray[i].id + '">' + playersArray[i].name + '</th>');	
-		}
-		$(tableId + ' TBODY TR').remove(); // clear table body
-	}
-	
-	
-	/**
-	* Displays the words, scores etc as a matrix
-	* @param: numRows - (optional) number of rows to display. By default all rows are displayed.
-	* Otherwise the specified number of rows starting from the most recent are displayed.
-	*/
-	function updateScoreBoard(id, tableId) {	
-		var html,
-			formattedWord,
-//			i,
-			numCols = $(tableId + ' THEAD TR TH').length; // # of columns in header
-
-
-		// Create html for new row containing word and score
-		html = 	'<tr><td>';
-		
-		// populate word
-		formattedWord = turnsArray[turnsArray.length-1].blueWord;
-		if (turnsArray.length >= 2) {
-			if (turnsArray[turnsArray.length-1].word === turnsArray[turnsArray.length-2].word) { // if player passed turn
-				formattedWord = '<i>(pass)</i>'; // enter '-' instead of word
-			}
-		}
-		else { // if this is the initial word from server
-//			formattedWord = '<i>' + formattedWord + '</i>';
-		}
-		html += formattedWord + '</td>';
-
-		// populate score
-		for (var i=0; i < numCols - 1; i++) { // use # columns in header as reference
-			//html += '<td class="' + playersArray[i].id + '">';
-			html += '<td>';
-			if (!id) { // if this is the initial word from server
-				html += '-';
-			}
-			else {
-				if (!playersArray[i]) { // if player has left the game
-					html += '---'; //enter '---' instead of current score
-				}
-				else { // if player is still in the game
-					if (id == playersArray[i].id) { // if player's turn
-						html += turnsArray[turnsArray.length-1].score; 
-					}
-					else { // if not player's turn
-						html += ''; // enter blank if not player's turn
-					}
-				}
-			}
-			html += '</td>';
-		}
-		html += '</tr>';
-		$(tableId + ' TBODY').append(html);
-
-		
-		updateTotalScore(tableId)  // Display total scores
-	}
-	
-	
-	/**
-	 * Update totals in scoreboard
-	 * @param tableId
-	 */
-	function updateTotalScore(tableId) {
-		var html;
-		var numCols = $(tableId + ' THEAD TR TH').length; // # of columns in header
-
-		$(tableId + ' .total').remove(); // remove existing total row
-		
-		// Create html for new row containing total scores
-		html = '<tr class="total">' +
-	 				'<td>TOTAL</td>';
-		for (var i=0; i < numCols - 1; i++) { // use number of columns in header as reference
-			html += '<td>';
-			if (!playersArray[i]) { // if player left the game
-				html += '---';
-			}
-			else { // if player is still in the game
-				html +=(playersArray[i].totalScore ? playersArray[i].totalScore : 0 ); // convert undefined to 0
-			}
-			html += '</td>';
-		}
-		html += '</tr>';
-		$(tableId + ' TBODY').append(html);
-	}
 	
 	
 	/**
@@ -615,74 +550,19 @@
 			}
 		}
 	}
-	
-	
-	/**
-	 * Displays word and other information for the current turn
-	 * @param data - data received from server
-	 */
-	function displayNewTurn(data) {
-		var formattedWord;
-		var pinBanLeft;
-		
-		resetGameUI(); // Reset elements on game screen
-		
-		// Apply green/ red color to pinned/ banned letter
-		if (myPinOrBan === ''){
-			formattedWord = data.currWord; // no formatting
-		}
-		else {
-			formattedWord =  data.currWord.replace(new RegExp(myLetter,'g'), '<span class="'+ myPinOrBan +'">' + myLetter + '</span>');
-		}
 
-		$('#word').html(formattedWord); // Display the formatted word
-		
-		showScreen('#game-screen'); // make game screen visible
-		fitWord(); // Fit word to screen size. This has to be done AFTER game-screen is visible
-		
-		if (data.id == socket.id) {
-			$('#pin-ban-left').text('(' + data.currPinBanLeft + ' left)');
-		}
-	}
-	
 	
 	/**
-	 * Get data for the current turn from the server
-	 * @param data
+	 * Removes player from current game
 	 */
-	function getNewTurnData(data) {
-
-		//Get data from the server and store in client memory
-		turnsArray.push({
-			word: data.currWord,
-			//TODO: change to formattedWord
-			blueWord:  data.currWord.replace(data.reusedFragment, // Apply blue color to re-used fragment
-							'<span class="reused">' + 
-							data.reusedFragment + '</span>'),
-			id: data.id,
-			playerName: data.playerName,
-			score: data.currScore
-		});
-		for (var i=0; i<playersArray.length; i++) {
-			if (playersArray[i] && playersArray[i].id == data.id) {
-				playersArray[i].totalScore = data.totalScore;
-			}
+	function leaveGame() {
+		if(confirm('Leave Game # ' + myRoomId + '?')) { // Show confirm dialog 
+			playersArray = [];
+			turnsArray = [];
+			$('#room-input').val('');	
+			showScreen('#home');
+			socket.emit('leaveGame');
 		}
-		myPinOrBan = data.pinOrBan;
-		myLetter = data.letter; 
-	}
-
-
-	function fitWord() {
-		textFit($('#word'),
-			{
-				alignHoriz:true,
-				alignVert:false,
-				widthOnly:true,
-				reProcess:true,
-				maxFontSize:64
-			}
-		);
 	}
 
 	
@@ -714,36 +594,194 @@
 		}
 	}
 	
+	// ---------------------------------------------------------//
+	// Helper functions											//
+	// ---------------------------------------------------------//
+	
+	/**
+	 * Updates the list of players in room
+	 */
+	function updatePlayerList() {
+		$('#players-list TBODY TR').remove(); // empty table
+		for (var i=0; i<playersArray.length; i++) { // populate player names from playersArray
+			if (playersArray[i]) {
+				$('#players-list TBODY').append('<tr><td>' + playersArray[i].name + '</td></tr>');	
+			}
+		}
+	}
+
+	
+	/**
+	 * Enables Start button if at least 2 players are in the room 
+	 * and disables it otherwise.
+	 */
+	function checkStartStatus() {
+		var count = 0;
+		for (var i=0; i<playersArray.length; i++) {
+			if (playersArray[i]) {
+				count++;
+			}
+		}
+		if (count >= 2) { // If at least 2 players are in the room
+			$('#start-btn').prop('disabled', false); // Enable start button
+		}
+		else {
+			$('#start-btn').prop('disabled', true); // Disable start button
+		}
+	}
+	
+
+	/**
+	 * Adjusts font size to fit window
+	 */
+	function fitWord() {
+		textFit($('#word'),
+			{
+				alignHoriz:true,
+				alignVert:false,
+				widthOnly:true,
+				reProcess:true,
+				maxFontSize:64
+			}
+		);
+	}
+
+
+	/**
+	 * Initializes the score board - populates header with player names.
+	 * @param {String} tableID
+	 */
+	function initScoreBoard(tableId) {
+		$(tableId + ' THEAD TR TH').remove(); // clear table header
+		$(tableId + ' THEAD TR').append('<th>Words</th>');
+		for (var i=0; i<playersArray.length; i++) { 
+			$(tableId + ' THEAD TR').append( // Add player names
+					'<th class="' + playersArray[i].id + '">' + playersArray[i].name + '</th>');	
+		}
+		$(tableId + ' TBODY TR').remove(); // clear table body
+	}
 	
 	
-	// -------------------------------------------------------
-	// UI Code 
-	// -------------------------------------------------------
+	/**
+	* Populate score board with word and score for the last turn.
+	* @param {String} id
+	* @param {String} tableId
+	*/
+	function updateScoreBoard(id, tableId) {	
+		var html,
+			formattedWord,
+			numCols = $(tableId + ' THEAD TR TH').length; // # of columns in header
+
+
+		// Create html for new row containing word and current score
+		html = 	'<tr><td>';
+		
+		// populate word
+		formattedWord = turnsArray[turnsArray.length-1].formattedWord;
+		if (turnsArray.length >= 2) { // if this is not the first turn
+			if (turnsArray[turnsArray.length-1].word === turnsArray[turnsArray.length-2].word) { // if player passed turn
+				formattedWord = '<i>(pass)</i>'; // enter '-' instead of word
+			}
+		}
+		html += formattedWord + '</td>';
+
+		// populate score
+		for (var i=0; i < numCols - 1; i++) { // use # columns in header as reference
+			html += '<td>';
+			if (!id) { // if this is the initial word from server
+				html += '-'; // no score
+			}
+			else {
+				if (!playersArray[i]) { // if player has left the game
+					html += '---'; //enter '---' instead of current score
+				}
+				else { // if player is still in the game
+					if (id == playersArray[i].id) { // if player's turn
+						html += turnsArray[turnsArray.length-1].score; 
+					}
+					else { // if not player's turn
+						html += ''; // enter blank if not player's turn
+					}
+				}
+			}
+			html += '</td>';
+		}
+		html += '</tr>';
+		
+		$(tableId + ' TBODY').append(html);
+
+		
+		updateTotalScore(tableId)  // Display total scores
+	}
+	
+	
+	/**
+	 * Update total score in scoreboard.
+	 * @param {String} tableId
+	 */
+	function updateTotalScore(tableId) {
+		var html;
+		var numCols = $(tableId + ' THEAD TR TH').length; // # of columns in header
+
+		$(tableId + ' .total').remove(); // remove existing total row
+		
+		// Create html for new row containing total scores
+		html = '<tr class="total">' +
+	 				'<td>TOTAL</td>';
+		for (var i=0; i < numCols - 1; i++) { // use number of columns in header as reference
+			html += '<td>';
+			if (!playersArray[i]) { // if player left the game
+				html += '---';
+			}
+			else { // if player is still in the game
+				html +=(playersArray[i].totalScore ? playersArray[i].totalScore : 0 ); // convert undefined to 0
+			}
+			html += '</td>';
+		}
+		html += '</tr>';
+		$(tableId + ' TBODY').append(html);
+	}
+	
+	
+	/** 
+	 * Checks if at least one letter is reused between the 2 strings
+	 * @param {String} string1
+	 * @param {String} string2
+	 */
+	function isFragmentReused(string1, string2) {
+		var shortWord,
+		 	longWord,
+		 	i = 0,
+		 	isReused=false;
+		if (string1.length < string2.length) {
+			shortWord = string1;
+			longWord = string2;
+		}
+		else {
+			shortWord = string2;
+			longWord = string1;
+		}
+		do {
+			isReused = (longWord.indexOf(shortWord.substr(i,1)) > -1);
+			i++;
+		}
+		while (!isReused && i<shortWord.length);
+		return isReused;
+	}
+	
+	
+	// ---------------------------------------------------------//
+	// UI Event Handlers										//
+	// ---------------------------------------------------------//
+	
 	$('#create-btn').on('click', createGame);
 	$('#join-btn').on('click', joinGame);
-	$("#submit-btn").on('click', function (data) {
-		sendPlayerResponse(data);
-	});
+	$("#submit-btn").on('click', sendPlayerResponse);
 	$('#start-btn').on('click', function() {
 		socket.emit('startGame', myRoomId);	
 	});
 	
-	$('#home-btn, #back-btn').on('click', function() {
-		// Show confirm dialog 
-		if(confirm('Leave Game # ' + myRoomId + '?')) {
-		    //Ok button pressed
-			playersArray = [];
-			turnsArray = [];
-			$('#room-input').val('');
-			
-			showScreen('#home');
-			socket.emit('leaveGame');
-		}
-	});
-	
-	$('#play-again-btn').on('click', function() {
-		showScreen('#lobby');
-	});
+	$('#home-btn, #back-btn').on('click', leaveGame);
 
 	$('#how-to-play-btn').on('click',function(e){
 		e.preventDefault();
@@ -770,24 +808,29 @@
 	    }
 	});
 	
+	$('#room-input').on('input paste propertychange', function () {
+		var value = $('#room-input').val();
+		if(value.length <= 0) {
+			$('#join-btn').prop('disabled',true);
+			return;
+		}
+		$('#join-btn').prop('disabled',false);
+	});
+	
 	$('#word-input, #letter-input').keypress(function(e) {
 	    if(e.keyCode === 13) {
 	    	sendPlayerResponse();
 	    }
 	});
 	
-	
-	/**
-	 * 	On Pin Ban radio button click
-	 */	
 	$('.pin-ban-rdo').click(function() {
 		// Toggle check and uncheck
-		if ($(this).hasClass('uncheck')){ // if previously checked
-			$(this).prop('checked', false); // uncheck radio button
-			$('.pin-ban-rdo').removeClass('uncheck'); // can no longer uncheck this
+		if ($(this).hasClass('uncheck')){
+			$(this).prop('checked', false);
+			$('.pin-ban-rdo').removeClass('uncheck');
 		}
 		else{ // if not previously checked
-			$('.pin-ban-rdo').removeClass('uncheck'); // remove uncheck from any radio button in the group
+			$('.pin-ban-rdo').removeClass('uncheck');
 			$(this).addClass('uncheck'); 
 		}
 		
@@ -799,8 +842,6 @@
 			$('#letter-input').prop('disabled', true);
 		}
 	});
-	
-	document.addEventListener("touchstart", function(){}, true);
 
 	$(window).on('load resize',function() {
 		if($("#game-screen").is(":visible")) {
@@ -808,6 +849,7 @@
 		}
 	});
 
+	document.addEventListener("touchstart", function(){}, true);
 	
 	$('.ghost-button').on("touchstart", function () {
 		var isDisabled = $(this).prop('disabled');		
@@ -824,44 +866,20 @@
 		}
 		$(this).removeClass("active");	
 	});
-
-	$('#room-input').on('input paste propertychange', function () {
-		var value = $('#room-input').val();
-		if(value.length <= 0) {
-			$('#join-btn').prop('disabled',true); // Disable if no game ID is entered
-			return;
-		}
-		$('#join-btn').prop('disabled',false);
-	});
 	
+	// ---------------------------------------------------------//
+	// Socket Event Handlers									//
+	// ---------------------------------------------------------//
 	
-	//Event handlers	
 	socket.on('playerJoinedRoom', playerJoinedRoom );
 	socket.on('newWord', function(data) {
-		console.log('next player: ', data.nextPlayerId, data.nextPlayerName);
-		
-		getNewTurnData(data);
-		
-		if (data.id == undefined) { // if first turn
-			initScoreBoard('#score-board'); 
-			$('#pin-ban-left').text('(' + data.currPinBanLeft + ' left)');
-		}
-		updateScoreBoard (data.id,'#score-board'); 
-		$('#recent-words').html($('#score-board').html()); // copy score board
-		truncateScoreBoard('#recent-words', 4); //truncate table to show only 4 rows (3 words + TOTAL row)
-		displayNewTurn(data);
-		
-		if (data.nextPlayerId === socket.id) { // If next player
-			makeActivePlayer(data.nextPinBanLeft); // Enable UI
-		}
-		else { // If not next player
-			//makeInactivePlayer(); // Disable UI
-			$('#word-input').prop('placeholder', data.nextPlayerName + "'s turn."); // show prompt
-		}
-
-		startTimer('#timer', MAX_TIME, function() {
-			passTurn(data.nextPlayerId); // Execute callback at the end of 60 seconds
+		getNewTurnData(data); // Update client side data store
+		updateUI(data); // Update UI for the next turn
+		activateNextPlayer(data);
+		startTimer('#timer', 60, function() {
+			passTurn(data.nextPlayerId); // Execute this at the end of 60 seconds
 		});
+
 	});
 	
 	socket.on('responseAccepted', function() {
@@ -870,22 +888,12 @@
 	});
 	
 	socket.on('activateNextPlayer', function(data) { 
-		stopTimer();
-		console.log('next player: #2 ', data.nextPlayerId, data.nextPlayerName);
-		
-		if (data.nextPlayerId === socket.id) { // If next player
-			makeActivePlayer(data.nextPinBanLeft); // Enable UI
-		}
-		else { // If not next player
-			//makeInactivePlayer(); // Disable UI
-			$('#word-input').prop('placeholder', data.nextPlayerName + "'s turn."); // show prompt
-		}
-	
-		startTimer('#timer', MAX_TIME, function() {
+		stopTimer();	
+		activateNextPlayer(data);	
+		startTimer('#timer', 60, function() {
 			passTurn(data.nextPlayerId); // Execute callback at the end of 60 seconds
 		});
 	});
-	
 	
 	socket.on('playerLeftRoom', playerLeftRoom );
 	
@@ -903,6 +911,6 @@
 	socket.on('error', error);
 	
 //};
-
-// Initial call
+//
+//// Initial call
 //new App();

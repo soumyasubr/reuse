@@ -11,10 +11,11 @@ var app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'node_modules')));
 
-var http = require('http');
-var server = http.createServer(app);
-server.listen(8080);
+//var http = require('http');
+var server = require('http').createServer(app);
 var io = require('socket.io').listen(server);
+
+server.listen(8080);
 
 //Listen for Socket.IO Connections. Once connected, start the game logic.
 io.on('connection', function (socket) {

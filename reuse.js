@@ -1,46 +1,18 @@
-// Global variables
-var fs = require('fs');
-var config = JSON.parse(fs.readFileSync('config.json','utf-8'));
-var io,
-	gameSocket,
-	games = {}, // game state and player information, indexed by roomId
+var fs = require('fs'),
+	config = JSON.parse(fs.readFileSync('config.json','utf-8')),
+	io, 			 // socketIO instance
+	socket, 		 // socket
+	games = {}, 	 // game state and player information, indexed by roomId
 	roomLookup = {}, // lookup room by client socket ID
-	wordList = [], // list of words to validate against
+	wordList = [], 	 // list of words to validate against
 	rejectList = []; // list of words to avoid
-
-
-/** Load word lists for valid words and offensive words.
- * 	'2of12inf' file from http://wordlist.aspell.net/12dicts/ is used to identify valid words. 
- * 	Word list from bannedwordlist.com was used as starting point to identify rejected words.
- */
-function loadWordLists() {
-	try {
-		// Load valid words
-		var validWords = fs.readFileSync(config.VALID_WORDS, 'utf-8');
-		wordList = validWords.toString().split('\n').map(function(str) { //create array
-			return str.replace('%','').trim(); // remove %, space and newline from each word
-		});
-		
-		// Load rejected words
-		var rejectedWords = fs.readFileSync(config.REJECTED_WORDS, 'utf-8');
-		rejectList = rejectedWords.toString().split('\n').map(function(str) { //create array
-			return str.trim(); // remove space and newline from each word
-		});
-		console.log('Dictionary successfully loaded');
-	}
-	catch (err) {
-		io.sockets.emit('error', {
-			processStep: 'init',
-			message: 'Error loading dictionary. '
-		});
-        console.log('Error loading dictionary. ' + err);
-	}
-}
 
 
 /** 
  * Creates a new room ID and places client in room
- *  @param: playerName
+ * @param {Object} input
+ * @param {String} input.playerName
+ * @param {Number} input.numPlayers
  */
 function createNewGame(input) {
 	var roomId,
@@ -50,7 +22,7 @@ function createNewGame(input) {
 	// Create a unique room ID
 	do {
 		roomId = parseInt(Math.random() * 100); // Generate random roomId
-		room = gameSocket.adapter.rooms[roomId]; // Array of clients in room. Should return nothing if room doesn't exist.
+		room = socket.adapter.rooms[roomId]; // Array of clients in room. Should return nothing if room doesn't exist.
 	}
 	while (	room !== undefined || // Check if room already exists
 			roomId === 0); // Room Id should be non-zero
@@ -63,35 +35,34 @@ function createNewGame(input) {
 	games[roomId].numPlayers = input.numPlayers;
 	games[roomId].players = {};
 	games[roomId].players[id] = {
-					name: input.playerName,
-					turn: 0,
-					totalScore: 0,
-					pinBanUsed: 0,
-					currPlayer: false
+				name: input.playerName,
+				turn: 0,
+				totalScore: 0,
+				pinBanUsed: 0,
+				isCurrPlayer: false
 	};
 	roomLookup[id] = roomId;
 	
-	var data = {
-			roomId: roomId,
-			playerName: input.playerName,
-			playersArray: [],
-	};
-	data.playersArray.push({id: id,
-							name: input.playerName
-	});
-	
     // Notify client that they have joined a room
-    io.sockets.to(id).emit('playerJoinedRoom', data);  
+    io.sockets.to(id).emit('playerJoinedRoom', {
+				roomId: roomId,
+				playersArray: [{
+					id: id,
+					name: input.playerName
+				}]
+    });  
     console.log(input.playerName, 'created Game', roomId);
 }
 
 
 /** 
- *  Joins the specified room if available
- * 	@param: data - playerName, roomId 
+ * Joins the specified room, if available
+ * @param {Object} data
+ * @param {String} data.playerName
+ * @param {Number} data.roomId
  */
 function joinExistingGame(data) {
-	var room = gameSocket.adapter.rooms[data.roomId]; // Get array of clients in room
+	var room = socket.adapter.rooms[data.roomId]; // Get array of clients in room
 	
 	if (room == undefined) { //If room does not exist
 		// Notify client that room does not exist
@@ -124,7 +95,6 @@ function joinExistingGame(data) {
 	}
     	
     this.join(data.roomId.toString()); // Place client in room
-    data.numPlayersInRoom = Object.keys(room).length; //Recalculate # players in room
     data.id = this.id;
             
 	// Store client data as in-memory objects       
@@ -133,7 +103,7 @@ function joinExistingGame(data) {
 			turn: 0,
 			totalScore: 0,
 			pinBanUsed: 0,
-			currPlayer: false
+			isCurrPlayer: false
 	};
 	roomLookup[data.id] = data.roomId;
 	
@@ -152,76 +122,48 @@ function joinExistingGame(data) {
 
 
 /**
- * Generate a random word that is no longer than 7 letters.
- * 5th grade word list from http://www.ideal-group.org/dictionary/  is used. (p-5_ok.txt)
- */
-function randomWord(){
-	var simpleWordList;
-	var word;
-	
-	try {
-		// Load simple words
-		var simpleWords = fs.readFileSync(config.SIMPLE_WORDS, 'utf-8');
-		simpleWordList = simpleWords.toString().split('\n').map(function(str) { //create array
-			return str.trim(); // remove space and newline from each word
-		});
-		console.log('Simple word list successfully loaded');
-	}
-	catch (err) {
-		io.sockets.emit('error', {
-				processStep: 'start game',
-				message: 'Error generating initial word. '
-		});
-        console.log('Error loading simple word list. ' + err);
-        return;
-	}
-	
-	// Generate a random word that matches the criteria
-	do {
-		word = simpleWordList[parseInt(Math.random() * simpleWordList.length)];
-	}
-	while (	word === undefined || 
-			!/^[a-z]+$/.test(word) || // contains only lower case characters (filter out hyphenated words, abbreviations etc.)
-			word.length < 3 || 			// word length between 3..
-			word.length > 7); 			// .. and 7
-	return word;
-}
-
-
-/* Prepares for the first round:
- * 		Sends an initial word to the players.
- * 		Identifies first player  
- * @param: roomId
+ * Prepares for the first round: Identifies first player; generates initial random word; 
+ * sends word to all players in room. 
+ * @param {Number} roomId
  */
 function firstTurn(roomId) {
-	//console.log('firstTurn', roomId, games[roomId]);
+	var keys,
+		firstPlayerId;
+	
 	if (games[roomId] == undefined) {
 		io.sockets.to(this.id).emit('error', {message: 'Unable to communicate with room. '});
 		return;
 	}
-    var keys = Object.keys(games[roomId].players); // Get list of socket IDs in the room
-    var data = {
-    		nextPlayerId: keys[0], 
-    		nextPlayerName: games[roomId].players[keys[0]].name,
-    		currWord: randomWord().toUpperCase(),
-    		currPinBanLeft: config.MAX_PIN_BAN,
-    		pinOrBan: '',
-    		letter: ''	
-//			roomId: roomId,
-//    		playerName: '(server)',
-//    		currScore: '-',
-//    		totalScore: 0
-    };
-	games[roomId].players[data.nextPlayerId].turn++; //increment turn # for first player
-	games[roomId].players[data.nextPlayerId].currPlayer = true;
-	games[roomId].state = 'started';
-    io.sockets.to(roomId).emit('newWord', data);
+	
+	if (games[roomId].state !== 'waiting') { // Allow to start game only if game has not started yet
+		io.sockets.to(this.id).emit('error', {message: 'Cannot start game. Game is already in progress. '});
+		return;
+	}
+	
+    keys = Object.keys(games[roomId].players); // Get list of socket IDs in the room
+    firstPlayerId = keys[0];
+    
+    // update information on the server
+	games[roomId].players[firstPlayerId].turn++; //increment turn # for first player
+	games[roomId].players[firstPlayerId].isCurrPlayer = true; // update current player flag
+	games[roomId].state = 'started'; // update game state
+	
+	// send new word to all clients in the room
+    io.sockets.to(roomId).emit('newWord', { 
+			nextPlayerId: keys[0], // first player to join the room gets the first turn
+			nextPlayerName: games[roomId].players[keys[0]].name, // name of first player
+			currWord: randomWord(3,7).toUpperCase(), //random word between 3 and 7 characters
+			currPinBanLeft: config.MAX_PIN_BAN, // number of pins/ bans available to first player
+			pinOrBan: '', // no pin or ban challenge for first turn
+//			letter: ''	// no pin or ban challenge
+    });
 }
 
 
 /** 
  * Checks if at least one letter is reused between the 2 strings
- * @param: string1, string2
+ * @param {String} string1
+ * @param {String} string2
  */
 function isFragmentReused(string1, string2) {
 	var shortWord,
@@ -248,7 +190,8 @@ function isFragmentReused(string1, string2) {
 }
 
 
-/* Checks if the player's response is valid.
+/** 
+ * Checks if the player's response is valid.
  * Most of this is already handled on the client. re-checking on server to disallow cheating.
  * @param: data - currWord, prevWord, pinOrBan, letter
  */
@@ -261,7 +204,6 @@ function isValidWord(data) {
 	// Check for special case first. If player passed turn, then word is '-'
 	if (data.currWord === '-') {
 		return {
-			message: 'Turn was passed. ', //TODO: Remove this. Not being used
 			value: true
 		};
 	}
@@ -435,9 +377,11 @@ function isGameOver(roomId) {
 }
 
 
-/* Prepares for the next round if previous player's response is valid.
- * 		Send next word, scores and other related data to all players.
- * 		Identify next player.
+/** 
+ * If player response is valid, calculate reused fragment and score;
+ * Check if game is over;
+ * Identify next player;
+ * Send word, score and other related data to all players
  * 		If game is over, send winner information.
  * @param: data - currWord, prevWord, pinOrBan, letter, nextPinOrBan, nextLetter
  */
@@ -450,7 +394,12 @@ function nextTurn(data) {
 		io.sockets.to(data.id).emit('error', {message: 'Unable to communicate with room. '});
 		return;
 	}
-	console.log('in nextTurn, data:', data);
+	
+	if (!games[roomId].players[data.id].isCurrPlayer) {
+		io.sockets.to(data.id).emit('error', {message: 'Not your turn. '});
+		return;
+	}
+	
 	valid = isValidWord(data); // Check if word is valid
 	if (valid.value) { 
 		io.sockets.to(roomId).emit('responseAccepted'); // Notify all players that word is valid
@@ -463,12 +412,10 @@ function nextTurn(data) {
 		return;
 	} // If word is invalid, don't process further
 	
-	//TODO: Don't send player name. client can retrieve from PlayersArray
 	data.playerName = games[roomId].players[data.id].name; // Name of current player
 	
 	// Identify reused fragment and score
 	if (data.currWord === '-') { // If turn was passed
-		//data.reusedFragment = '';
 		data.currScore = 0; // no points for this turn
 		data.currWord = data.prevWord;
 	}
@@ -498,8 +445,8 @@ function nextTurn(data) {
     	    
     	    //Update player information on server
     	    games[roomId].players[data.nextPlayerId].turn++; // Update turn number for next player
-        	games[roomId].players[data.id].currPlayer = false;
-        	games[roomId].players[data.nextPlayerId].currPlayer = true;
+        	games[roomId].players[data.id].isCurrPlayer = false;
+        	games[roomId].players[data.nextPlayerId].isCurrPlayer = true;
     	    
         	io.sockets.to(roomId).emit('newWord', data); // Notify clients to prepare for next player's turn
     	}
@@ -571,7 +518,7 @@ function disconnect() {
 	
 	// Identify who has the current turn
 	for (var key in players) {
-		if (players[key].currPlayer) {
+		if (players[key].isCurrPlayer) {
 			currPlayerId = key;
 		}
 	}
@@ -585,27 +532,24 @@ function disconnect() {
 		if (!nextPlayerId) { // handle game over only if there are no more players left!
 			handleGameOver(data, roomId);
 		}
-		return; // Do nothing more
+		return; 
 	}
 	
 	//**** If player who left had the active turn *****//
 	var nextPlayerId = identifyNextPlayer(games[roomId]);
 	//TODO: Create function
-	console.log('nextPlayerId: ' + nextPlayerId);
 	if (!isGameOver(roomId) && nextPlayerId) { // If game is NOT over
 		
     	// Get next player info
 		data.nextPlayerId = nextPlayerId;
 		data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player //TODO: Don't send name
 	    data.nextPinBanLeft = config.MAX_PIN_BAN - games[roomId].players[data.nextPlayerId].pinBanUsed; // number of pins/ bans left for next player
-		console.log('next player:', data.nextPlayerId, data.nextPlayerName);
     
 	    //Update player data on server
 	    games[roomId].players[data.nextPlayerId].turn++; // Update turn number for next player
-    	games[roomId].players[data.nextPlayerId].currPlayer = true;
+    	games[roomId].players[data.nextPlayerId].isCurrPlayer = true;
     	   
     	    io.sockets.to(roomId).emit('activateNextPlayer', data); // Notify clients to skip to next player
-    	    //console.log('data sent to client:', data);
     }
     else { 
     	handleGameOver(data, roomId, nextPlayerId);
@@ -649,22 +593,95 @@ function handleGameOver(data, roomId, nextPlayerId) {
 	io.sockets.to(roomId).emit('gameOver', data);
 }
 
+// ---------------------------------------------------------//
+// Helper functions											//
+// ---------------------------------------------------------//
+
+/** Load word lists for valid words and offensive words.
+ * 	'2of12inf' file from http://wordlist.aspell.net/12dicts/ is used to identify valid words. 
+ * 	Word list from bannedwordlist.com is used to identify blacklisted words.
+ */
+function loadWordLists() {
+	try {
+		// Load valid words
+		var validWords = fs.readFileSync(config.VALID_WORDS, 'utf-8');
+		wordList = validWords.toString().split('\n').map(function(str) { //create array
+			return str.replace('%','').trim(); // remove %, space and newline from each word
+		});
+		
+		// Load rejected words
+		var rejectedWords = fs.readFileSync(config.REJECTED_WORDS, 'utf-8');
+		rejectList = rejectedWords.toString().split('\n').map(function(str) { //create array
+			return str.trim(); // remove space and newline from each word
+		});
+		console.log('Dictionary successfully loaded');
+	}
+	catch (err) {
+		io.sockets.emit('error', {
+				processStep: 'init',
+				message: 'Error loading dictionary. '
+		});
+        console.log('Error loading dictionary. ' + err);
+	}
+}
+
+
+/**
+ * Generate a random word between 3 and 7 letters.
+ * 5th grade word list from http://www.ideal-group.org/dictionary/  is used. (p-5_ok.txt)
+ * @param {Number} minLetters
+ * @param {Number} maxLetters
+ * @return {String} word
+ */
+function randomWord(minLetters, maxLetters){
+	var simpleWordList;
+	var word;
+	
+	try {
+		// Load simple words
+		var simpleWords = fs.readFileSync(config.SIMPLE_WORDS, 'utf-8');
+		simpleWordList = simpleWords.toString().split('\n').map(function(str) { //create array
+			return str.trim(); // remove space and newline from each word
+		});
+		console.log('Simple word list successfully loaded');
+	}
+	catch (err) {
+		io.sockets.emit('error', {
+				processStep: 'start game',
+				message: 'Error generating initial word. '
+		});
+        console.log('Error loading simple word list. ' + err);
+        return;
+	}
+	
+	// Generate a random word that matches the criteria
+	do {
+		word = simpleWordList[parseInt(Math.random() * simpleWordList.length)];
+	}
+	while (	word === undefined || 
+			!/^[a-z]+$/.test(word) || 		// contains only lower case characters (filter out hyphenated words, abbreviations etc.)
+			word.length < minLetters || 	// word length between minLetters..
+			word.length > maxLetters); 		// .. and maxLetters
+	return word;
+}
+
+
 // Using 'exports' makes this function available to other files once imported
-exports.initGame = function(sio, socket) {
-	io = sio;
-    gameSocket = socket;
-    gameSocket.on('createNewGame', createNewGame);
-    gameSocket.on('joinExistingGame', joinExistingGame);
-    gameSocket.on('startGame', firstTurn);
-    gameSocket.on('nextTurn', nextTurn);
-    gameSocket.on('disconnect', disconnect);
-    gameSocket.on('leaveGame', disconnect);
-    gameSocket.on('error', function (err) { console.error(err.stack);});
+exports.initGame = function(_io, _socket) {
+	io = _io;
+	socket = _socket;
+	socket.on('createNewGame', createNewGame);
+	socket.on('joinExistingGame', joinExistingGame);
+	socket.on('startGame', firstTurn);
+	socket.on('nextTurn', nextTurn);
+	socket.on('disconnect', disconnect);
+	socket.on('leaveGame', disconnect);
+    socket.on('error', function (err) { console.error(err.stack);});
     
     // Load dictionary if not already loaded
 	if (wordList.length === 0 || rejectList.length === 0) {
 		loadWordLists();
-		console.log('Testing random word:', randomWord());
+//		console.log('Testing random word:', randomWord(3,7));
 	}
 };
 
