@@ -26,7 +26,6 @@ h1 {
 
 h2 {
 	font-size: 3em;	
-/* 	font-weight: 110; */
 }
 
 h1 span {
@@ -88,7 +87,6 @@ input.holo[type='number']:focus {
 }
 
 .wrapper{
-    /*overflow:hidden;*/
     position: relative;
     height: 100%;
     width: 100%;
@@ -128,8 +126,6 @@ th {
 
 th, td {
 	padding: 10px;
-    /*width: 50px;*/
-    /*text-align: center;*/
 }
 
 .center {
