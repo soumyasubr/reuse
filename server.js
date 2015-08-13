@@ -11,7 +11,6 @@ var app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'node_modules')));
 
-//var http = require('http');
 var server = require('http').createServer(app);
 var io = require('socket.io').listen(server);
 

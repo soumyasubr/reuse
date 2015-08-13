@@ -57,7 +57,7 @@ function createNewGame(input) {
 	
 	// Create a unique room ID
 	do {
-		roomId = parseInt(Math.random() * 10); // Generate random roomId
+		roomId = parseInt(Math.random() * 100); // Generate random roomId
 		room = socket.adapter.rooms[roomId]; // Array of clients in room. Should return nothing if room doesn't exist.
 	}
 	while (	room !== undefined || // Check if room already exists
@@ -286,7 +286,7 @@ function nextTurn(data) {
         io.sockets.to(roomId).emit('newWord', data); // Notify clients to prepare for next player's turn
     }
     else { // If game is over
-    	handleGameOver(roomId, data);
+    	handleGameOver(roomId, data, nextPlayerId);
     }
 }
 
@@ -344,7 +344,7 @@ function disconnect() {
 		console.log('not disconnected player\'s turn. ',currPlayerId);
 		var nextPlayerId = identifyNextPlayer(games[roomId]);
 		if (!nextPlayerId) { // handle game over only if there are no more players left!
-			handleGameOver(roomId, data);
+			handleGameOver(roomId, data, nextPlayerId);
 		}
 		return; 
 	}
@@ -365,7 +365,7 @@ function disconnect() {
     	io.sockets.to(roomId).emit('activateNextPlayer', data); // Notify clients to skip to next player
     }
     else { 
-    	handleGameOver(roomId, data);
+    	handleGameOver(roomId, data, nextPlayerId);
     }
 			
 			/**
@@ -375,8 +375,10 @@ function disconnect() {
 			function removePlayer() {
 				try {
 					_this.leave(roomId); // leave room
-					delete games[roomId].players[id];
 					delete roomLookup[id];
+					if (games[roomId] != undefined) {
+						delete games[roomId].players[id];
+					}
 				}
 				catch (err) {
 			        console.log('Could not delete from array: ' + err);
@@ -390,8 +392,8 @@ function disconnect() {
  * @param {Number} roomId
  * @param {Object} data
  */
-function handleGameOver(roomId, data) {
-	if (data.nextPlayerId == undefined) {
+function handleGameOver(roomId, data, nextPlayerId) {
+	if (nextPlayerId == undefined) {
 		io.sockets.to(roomId).emit('error', {
 			message : 'Ending game as all other players left :('
 		});
@@ -400,7 +402,6 @@ function handleGameOver(roomId, data) {
 	else { // If game is over
 		data.winner = computeWinner(roomId); // get winner info
 	}
-//	games[roomId].state = 'ended';
 	delete games[roomId]; // remove data for this room
 
 	console.log('Data @ gameOver', data);
@@ -629,7 +630,6 @@ function identifyNextPlayer(roomObj) {
 						turn: roomObj.players[key].turn
 			});
 		}
-		console.log('turns',turns);
 		
 		var nextPlayerId = turns[0].id; // initialize nextPlayerId
 		for (var i=0; i < turns.length; i++) {

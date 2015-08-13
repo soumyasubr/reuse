@@ -1,13 +1,11 @@
 //var App = function() {
 	'use strict';
 	var socket = io.connect(),
-		myName, 	// player name
-		myRoomId, 	// player room
-		myPinOrBan, // pin or ban challenge for current turn
-		myLetter, 	// letter pinned or banned for current turn
-		myTimerId, 	// timer handler
-		turnsArray = [], // array with data for each turn
-		playersArray;
+		myName, 		 // player name
+		myRoomId, 		 // player room
+		myTimerId, 		 // timer handler
+		playersArray,	 // array with player id and name
+		turnsArray = []; // array with data for each turn
 
 	//Display home page
 	showScreen('#home');
@@ -122,17 +120,17 @@
 								data.reusedFragment + '</span>'),
 				id: data.id,
 				playerName: data.playerName,
-				score: data.currScore
+				score: data.currScore,
+				pinOrBan: data.pinOrBan,
+				letter: data.letter
 			});
 			for (var i=0; i<playersArray.length; i++) {
 				if (playersArray[i] && playersArray[i].id == data.id) {
 					playersArray[i].totalScore = data.totalScore;
 				}
 			}
-			myPinOrBan = data.pinOrBan;
-			myLetter = data.letter; 
 		}
-		catch(err){};
+		catch(err){}
 	}
 	
 	
@@ -141,21 +139,23 @@
 	 * @param {Object} data
 	 * @param {String} data.id
 	 * @param {String} data.currWord
-	 * @param {Number} data.currPinBanLeft
 	 * @param {String} data.nextPlayerId
 	 * @param {String} data.nextPlayerName
 	 * @param {Number} data.nextPinBanLeft
+	 * @param {Number} data.currPinBanLeft
+	 * @param {String} data.pinOrBan
+	 * @param {String} data.letter
 	 */
 	function updateUI(data) {
 		var formattedWord;
-
+		
 		resetGameUI(); // Reset elements on game screen
 		showScreen('#game-screen'); // make game screen visible
 		
 		// Display word
-		if (myPinOrBan === 'pin' || myPinOrBan === 'ban'){
-			formattedWord =   data.currWord.replace(new RegExp(myLetter,'g'), '<span class="'+ myPinOrBan +'">' + myLetter + '</span>'); // Apply green/ red color to pinned/ banned letter
-		}
+		if (data.pinOrBan === 'pin' || data.pinOrBan === 'ban'){
+		formattedWord =   data.currWord.replace(new RegExp(data.letter,'g'), '<span class="'+ data.pinOrBan +'">' + data.letter + '</span>'); // Apply green/ red color to pinned/ banned letter
+	}
 		else {
 			formattedWord =  data.currWord; // no formatting
 		}
@@ -210,7 +210,6 @@
 				$(elemId).text('0:' + time);
 			}
 			else { // Timer expired
-				console.log('Time is up', myTimerId);
 				callback(); 
 			} 
 		}
@@ -235,9 +234,11 @@
 		var prevWord = turnsArray[turnsArray.length - 1].word; // word from previous turn
 		
 		// Current turn data
-		var currWord = $('#word-input').val().toUpperCase().trim();
-		var pb = ''; // pin or ban for next player
-		var l = $("#letter-input").val().toUpperCase().trim(); // letter to pin or ban for next player
+		var currWord = $('#word-input').val().toUpperCase().trim(),
+		 	pb = '', // pin or ban for next player
+		    l = $("#letter-input").val().toUpperCase().trim(), // letter to pin or ban for next player
+		    myPinOrBan = turnsArray[turnsArray.length - 1].pinOrBan,
+		    myLetter = turnsArray[turnsArray.length - 1].letter;
 		
 		// If user input is valid, request server to validate against dictionary and prepare next turn
 		if (validateResponse()) {
@@ -367,6 +368,22 @@
 	
 	
 	/**
+	 * Display messages in the appropriate screens. 
+	 * Error messages have class='error'. Informational messages have class='info'.
+	 * @param {Object} data
+	 * @param {String} data.screen
+	 * @param {String} data.type
+	 * @param {String} data.message
+	 */
+	function showMessage(data) {
+		$(data.screen + ' .status').append('<span class="' + data.type + '">' + data.message + '</span>');
+		$(data.screen + ' .status span').delay(2500).fadeOut(250, function() { 
+			$(this).remove(); 
+		});
+	}
+	
+	
+	/**
 	 * Processes error messages received from the server
 	 * @param {Object} data 
 	 * @param {String} data.processStep
@@ -402,22 +419,6 @@
 	
 	
 	/**
-	 * Display messages in the appropriate screens. 
-	 * Error messages have class='error'. Informational messages have class='info'.
-	 * @param {Object} data
-	 * @param {String} data.screen
-	 * @param {String} data.type
-	 * @param {String} data.message
-	 */
-	function showMessage(data) {
-		$(data.screen + ' .status').append('<span class="' + data.type + '">' + data.message + '</span>');
-		$(data.screen + ' .status span').delay(2500).fadeOut(250, function() { 
-			$(this).remove(); 
-		});
-	}
-	
-	
-	/**
 	 * Display winner(s).
 	 * @param {Array} data.winner
 	 *
@@ -425,8 +426,7 @@
 	function showWinner(winner) {
 		var text = '';
 		
-		// Display 'game-over' div and hide other divs.
-		showScreen('#game-over');
+		showScreen('#game-over'); // Display 'game-over' div and hide other divs.
 
 		if (winner) {
 			if (winner.length === 1){
@@ -451,14 +451,12 @@
 			}
 		}
 		else { // all others quit.. win by default
-			text = 'Ended game..';
+			text = 'Ending game..';
 		}
 		$("#game-over h3").text(text + '!');
 	}
 
 
-	
-	
 	/**
 	 * Passes current player's turn and sends empty word to server.
 	 * @param {String} playerId
@@ -641,16 +639,16 @@
 	function updateScoreBoard(id, tableId) {	
 		var html,
 			formattedWord,
-			numCols = $(tableId + ' THEAD TR TH').length; // # of columns in header
-
+			numCols = $(tableId + ' THEAD TR TH').length, // # of columns in header
+			numTurns = turnsArray.length;
 
 		// Create html for new row containing word and current score
 		html = 	'<tr><td>';
 		
 		// populate word
-		formattedWord = turnsArray[turnsArray.length-1].formattedWord;
-		if (turnsArray.length >= 2) { // if this is not the first turn
-			if (turnsArray[turnsArray.length-1].word === turnsArray[turnsArray.length-2].word) { // if player passed turn
+		formattedWord = turnsArray[numTurns-1].formattedWord;
+		if (numTurns >= 2) { // if this is not the first turn
+			if (turnsArray[numTurns-1].word === turnsArray[numTurns-2].word) { // if player passed turn
 				formattedWord = '<i>(pass)</i>'; // enter '-' instead of word
 			}
 		}
@@ -668,7 +666,7 @@
 				}
 				else { // if player is still in the game
 					if (id == playersArray[i].id) { // if player's turn
-						html += turnsArray[turnsArray.length-1].score; 
+						html += turnsArray[numTurns-1].score; 
 					}
 					else { // if not player's turn
 						html += ''; // enter blank if not player's turn
