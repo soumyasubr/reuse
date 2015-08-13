@@ -1,4 +1,4 @@
-var App = function() {
+//var App = function() {
 	'use strict';
 	var socket = io.connect(),
 		myName, 		 // player name
@@ -13,7 +13,7 @@ var App = function() {
 	
 	/**
 	 * Hide other divs and show the specified divs.
-	 * @param divID ID of div to show 
+	 * @param divID - ID of div to be shown 
 	 */
 	function showScreen(divId) {
 		$('.scene').hide();
@@ -137,14 +137,14 @@ var App = function() {
 	/**
 	 * Prepare game screen for new turn - updates word and other information.
 	 * @param {Object} data
-	 * @param {String} data.id
-	 * @param {String} data.currWord
-	 * @param {String} data.nextPlayerId
-	 * @param {String} data.nextPlayerName
-	 * @param {Number} data.nextPinBanLeft
-	 * @param {Number} data.currPinBanLeft
-	 * @param {String} data.pinOrBan
-	 * @param {String} data.letter
+	 * @param {String} data.id - ID of player that just played
+	 * @param {String} data.currWord - word for next player
+	 * @param {String} data.nextPlayerId - ID of next player
+	 * @param {String} data.nextPlayerName - name of next player
+	 * @param {Number} data.nextPinBanLeft - number of pin/ ban left for next player
+	 * @param {Number} data.currPinBanLeft - number of pin/ ban left for current player
+	 * @param {String} data.pinOrBan - pin or ban assigned to next player
+	 * @param {String} data.letter - letter to pin or ban for next player
 	 */
 	function updateUI(data) {
 		var formattedWord;
@@ -200,8 +200,8 @@ var App = function() {
 	 * Start timer for specified duration (seconds) 
 	 * and execute callback once timer has expired.
 	 * @param {String} elemId
-	 * @param {Number} time
-	 * @param {Function} callback
+	 * @param {Number} time - timer duration in seconds
+	 * @param {Function} callback - function to be executed at the end of the specified time
 	 */	
 	function startTimer( elemId, time, callback) {
 		function countdown() {
@@ -248,8 +248,7 @@ var App = function() {
 					pinOrBan: myPinOrBan,
 					letter: myLetter,
 					nextPinOrBan: pb,
-					nextLetter: l,
-					id: socket.id
+					nextLetter: l
 			});
 		}
 		
@@ -363,58 +362,58 @@ var App = function() {
 				});
 	
 				return valid;
-			} // validateResponse ends
+			} // validateResponse() ends
 	}
+
 	
-	
+
 	/**
-	 * Display messages in the appropriate screens. 
-	 * Error messages have class='error'. Informational messages have class='info'.
-	 * @param {Object} data
-	 * @param {String} data.screen
-	 * @param {String} data.type
-	 * @param {String} data.message
+	 * Removes player from current game.
 	 */
-	function showMessage(data) {
-		$(data.screen + ' .status').append('<span class="' + data.type + '">' + data.message + '</span>');
-		$(data.screen + ' .status span').delay(2500).fadeOut(250, function() { 
-			$(this).remove(); 
-		});
+	function leaveGame() {
+		if(confirm('Leave Game # ' + myRoomId + '?')) { // Show confirm dialog 
+			playersArray = [];
+			turnsArray = [];
+			$('#room-input').val('');	
+			showScreen('#home');
+			socket.emit('leaveGame');
+		}
 	}
-	
+
 	
 	/**
-	 * Processes error messages received from the server
-	 * @param {Object} data 
-	 * @param {String} data.processStep
-	 * @param {String} data.message
-	 */	
-	function error(data) {
-		var screen;
-		switch (data.processStep) {
-		case 'init':
-			screen = '#home';
-			break;
-		case 'join':
-			screen = '#home';
-			break;
-		case 'start game':
-			screen = '#lobby';
-			break;
-		case 'active game':
-			screen = '#game-screen';
-			break;
-		case 'game over':
-			screen = '#game-over';
-			break;
-		default:
-			screen = '';
+	 * Handles player leaving the game.
+	 * Removes player data from array.
+	 * Notifies other players
+	 * @param {Object} data
+	 * @param {String} data.id
+	 * @param {String} data.gameState
+	 * @param {String} data.name
+	 */
+	function playerLeftRoom(data) {
+		// Remove player from playersArray
+		for (var i=0; i<playersArray.length; i++) {
+			if (playersArray[i] && playersArray[i].id == data.id) {
+				if (data.gameState === 'waiting') {
+					playersArray.splice(i,1); //deletes values and modifies index
+				}
+				else {
+					delete playersArray[i]; // deletes value, but does not modify index
+				}
+				break;
+			}
 		}
-		showMessage({
-			screen: screen,
-			message: data.message,
-			type: 'error'
-		});
+
+		updatePlayerList(); // Remove name from player list in lobby screen
+		checkStartStatus(); // Enable/ disable Start button in lobby screen
+		
+		if (socket.id !== data.id) { // Display message to other players
+			showMessage({
+				screen: '', // show on any screen - lobby, game-screen or game-over
+				type: 'error',
+				message: data.name + ' left. ',
+				});
+		}
 	}
 	
 	
@@ -478,144 +477,6 @@ var App = function() {
 	}
 	
 	
-	/**
-	 * Enables form elements. Applies color formatting.
-	 * @param {Number} pinBanLeft
-	 */
-	function makeActivePlayer(pinBanLeft) {
-		//Enable form elements
-		$('#word-input').prop('disabled',false);
-		$('#submit-btn').prop('disabled',false);
-		$('.pin-ban-rdo').prop('disabled',false);
-		if (pinBanLeft === 0) { // disable radio button if no more pin/ ban left
-			$('.pin-ban-rdo').prop('disabled',true);
-		}
-		
-		// Apply color formatting
-		$('#word').addClass('reused'); // Make word blue for active player
-		$('#pin').addClass('pin');
-		$('#ban').addClass('ban');
-		
-		// Show message
-		showMessage({
-			screen: '#game-screen',
-			message: 'Your turn. ',
-			type: 'info'
-		});
-		$('#word-input').prop('placeholder', 'Enter your word');
-	}
-	
-	
-	/**
-	 * Disable form elements and removes color formatting.
-	 */
-	function makeInactivePlayer() {
-		// Disable form elements
-		$('#word-input').prop('disabled',true);
-		$('#submit-btn').prop('disabled',true);
-		$('.pin-ban-rdo').prop('disabled',true);
-		
-		// Remove color formatting
-		$('#word').removeClass('reused'); // Make word black for inactive player
-		$('#pin').removeClass('pin');
-		$('#ban').removeClass('ban');
-	}
-
-
-	
-	/**
-	 * Removes player from current game.
-	 */
-	function leaveGame() {
-		if(confirm('Leave Game # ' + myRoomId + '?')) { // Show confirm dialog 
-			playersArray = [];
-			turnsArray = [];
-			$('#room-input').val('');	
-			showScreen('#home');
-			socket.emit('leaveGame');
-		}
-	}
-
-	
-	/**
-	 * Handles player leaving the game.
-	 * Removes player data from array.
-	 * Notifies other players
-	 */
-	function playerLeftRoom(data) {
-		// Remove player from playersArray
-		for (var i=0; i<playersArray.length; i++) {
-			if (playersArray[i] && playersArray[i].id == data.id) {
-				delete playersArray[i]; // deletes value, but does not index
-				break;
-			}
-		}
-
-		updatePlayerList(); // Remove name from player list in lobby screen
-		checkStartStatus(); // Enable/ disable Start button in lobby screen
-		
-		if (socket.id !== data.id) { // Display message to other players
-			showMessage({
-				screen: '', // show on any screen - lobby, game-screen or game-over
-				type: 'error',
-				message: data.name + ' left. ',
-				});
-		}
-	}
-	
-	// ---------------------------------------------------------//
-	// Helper functions											//
-	// ---------------------------------------------------------//
-	
-	/**
-	 * Updates the list of players in room
-	 */
-	function updatePlayerList() {
-		$('#players-list TBODY TR').remove(); // empty table
-		for (var i=0; i<playersArray.length; i++) { // populate player names from playersArray
-			if (playersArray[i]) {
-				$('#players-list TBODY').append('<tr><td>' + playersArray[i].name + '</td></tr>');	
-			}
-		}
-	}
-
-	
-	/**
-	 * Enables Start button if at least 2 players are in the room 
-	 * and disables it otherwise.
-	 */
-	function checkStartStatus() {
-		var count = 0;
-		for (var i=0; i<playersArray.length; i++) {
-			if (playersArray[i]) {
-				count++;
-			}
-		}
-		if (count >= 2) { // If at least 2 players are in the room
-			$('#start-btn').prop('disabled', false); // Enable start button
-		}
-		else {
-			$('#start-btn').prop('disabled', true); // Disable start button
-		}
-	}
-	
-
-	/**
-	 * Adjusts font size to fit window
-	 */
-	function fitWord() {
-		textFit($('#word'),
-			{
-				alignHoriz:true,
-				alignVert:false,
-				widthOnly:true,
-				reProcess:true,
-				maxFontSize:64
-			}
-		);
-	}
-
-
 	/**
 	 * Initializes the score board - populates header with player names.
 	 * @param {String} tableID
@@ -710,18 +571,6 @@ var App = function() {
 		html += '</tr>';
 		$(tableId + ' TBODY').append(html);
 	}
-	
-	
-	/**
-	 * Resets form elements.
-	 */
-	function resetGameUI() {
-		$('#word-input').val('');
-		$('#letter-input').val('');
-		$('#letter-input').prop('disabled', true);
-		$('.pin-ban-rdo').prop('checked', false); 
-		$('.pin-ban-rdo').removeClass('uncheck'); // reset check/ uncheck toggle
-	}
 
 	
 	/**
@@ -737,6 +586,162 @@ var App = function() {
 				$(tableId + ' TBODY TR:first').remove(); // remove first 
 			}
 		}
+	}
+	
+	
+	/**
+	 * Enables form elements. Applies color formatting.
+	 * @param {Number} pinBanLeft
+	 */
+	function makeActivePlayer(pinBanLeft) {
+		//Enable form elements
+		$('#word-input').prop('disabled',false);
+		$('#submit-btn').prop('disabled',false);
+		$('.pin-ban-rdo').prop('disabled',false);
+		if (pinBanLeft === 0) { // disable radio button if no more pin/ ban left
+			$('.pin-ban-rdo').prop('disabled',true);
+		}
+		
+		// Apply color formatting
+		$('#word').addClass('reused'); // Make word blue for active player
+		$('#pin').addClass('pin');
+		$('#ban').addClass('ban');
+		
+		// Show message
+		showMessage({
+			screen: '#game-screen',
+			message: 'Your turn. ',
+			type: 'info'
+		});
+		$('#word-input').prop('placeholder', 'Enter your word');
+	}
+	
+	
+	/**
+	 * Disable form elements and removes color formatting.
+	 */
+	function makeInactivePlayer() {
+		// Disable form elements
+		$('#word-input').prop('disabled',true);
+		$('#submit-btn').prop('disabled',true);
+		$('.pin-ban-rdo').prop('disabled',true);
+		
+		// Remove color formatting
+		$('#word').removeClass('reused'); // Make word black for inactive player
+		$('#pin').removeClass('pin');
+		$('#ban').removeClass('ban');
+	}
+
+	
+	/**
+	 * Display messages in the appropriate screens. 
+	 * Error messages have class='error'. Informational messages have class='info'.
+	 * @param {Object} data
+	 * @param {String} data.screen
+	 * @param {String} data.type
+	 * @param {String} data.message
+	 */
+	function showMessage(data) {
+		$(data.screen + ' .status').append('<span class="' + data.type + '">' + data.message + '</span>');
+		$(data.screen + ' .status span').delay(2500).fadeOut(250, function() { 
+			$(this).remove(); 
+		});
+	}
+	
+	
+	/**
+	 * Processes error messages received from the server
+	 * @param {Object} data 
+	 * @param {String} data.processStep
+	 * @param {String} data.message
+	 */	
+	function error(data) {
+		var screen;
+		switch (data.processStep) {
+		case 'init':
+			screen = '#home';
+			break;
+		case 'join':
+			screen = '#home';
+			break;
+		case 'start game':
+			screen = '#lobby';
+			break;
+		case 'active game':
+			screen = '#game-screen';
+			break;
+		case 'game over':
+			screen = '#game-over';
+			break;
+		default:
+			screen = '';
+		}
+		showMessage({
+			screen: screen,
+			message: data.message,
+			type: 'error'
+		});
+	}
+	
+	
+	/**
+	 * Updates the list of players in room
+	 */
+	function updatePlayerList() {
+		$('#players-list TBODY TR').remove(); // empty table
+		for (var i=0; i<playersArray.length; i++) { // populate player names from playersArray
+			if (playersArray[i]) {
+				$('#players-list TBODY').append('<tr><td>' + playersArray[i].name + '</td></tr>');	
+			}
+		}
+	}
+
+	
+	/**
+	 * Enables Start button if at least 2 players are in the room 
+	 * and disables it otherwise.
+	 */
+	function checkStartStatus() {
+		var count = 0;
+		for (var i=0; i<playersArray.length; i++) {
+			if (playersArray[i]) {
+				count++;
+			}
+		}
+		if (count >= 2) { // If at least 2 players are in the room
+			$('#start-btn').prop('disabled', false); // Enable start button
+		}
+		else {
+			$('#start-btn').prop('disabled', true); // Disable start button
+		}
+	}
+	
+
+	/**
+	 * Adjusts font size to fit window
+	 */
+	function fitWord() {
+		textFit($('#word'),
+			{
+				alignHoriz:true,
+				alignVert:false,
+				widthOnly:true,
+				reProcess:true,
+				maxFontSize:64
+			}
+		);
+	}
+
+	
+	/**
+	 * Resets form elements.
+	 */
+	function resetGameUI() {
+		$('#word-input').val('');
+		$('#letter-input').val('');
+		$('#letter-input').prop('disabled', true);
+		$('.pin-ban-rdo').prop('checked', false); 
+		$('.pin-ban-rdo').removeClass('uncheck'); // reset check/ uncheck toggle
 	}
 	
 	
@@ -772,11 +777,12 @@ var App = function() {
 	// ---------------------------------------------------------//
 	
 	$('#create-btn').on('click', createGame);
+	
 	$('#join-btn').on('click', joinGame);
+	
 	$("#submit-btn").on('click', sendPlayerResponse);
-	$('#start-btn').on('click', function() {
-		socket.emit('startGame', myRoomId);	
-	});
+	
+	$('#start-btn').on('click', function() { socket.emit('startGame');});
 	
 	$('#home-btn, #back-btn').on('click', leaveGame);
 
@@ -908,7 +914,7 @@ var App = function() {
 	
 	socket.on('error', error);
 	
-};
-
-// Initial call
-new App();
+//};
+//
+//// Initial call
+//new App();
