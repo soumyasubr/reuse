@@ -197,7 +197,7 @@
 	
 	
 	/**
-	 * 	Start timer for specified duration (seconds) 
+	 * Start timer for specified duration (seconds) 
 	 * and execute callback once timer has expired.
 	 * @param {String} elemId
 	 * @param {Number} time
@@ -216,7 +216,6 @@
 		}
 		
 		myTimerId = setInterval(countdown, 1000); // Set a timer with 1s interval. Call countdown at every tick.		
-		console.log('Timer started', myTimerId);
 	}
 	
 	
@@ -226,7 +225,6 @@
 	function stopTimer() {
 		clearTimeout(myTimerId);
 		$("#timer").text('1:00');
-		console.log('Timer stopped', myTimerId);
 	}
 	
 	
@@ -234,7 +232,6 @@
 	 * Sends player's response (word + other info) to the server.
 	 */
 	function sendPlayerResponse() {
-		//var prevWord = $("#word").text();
 		var prevWord = turnsArray[turnsArray.length - 1].word; // word from previous turn
 		
 		// Current turn data
@@ -244,7 +241,6 @@
 		
 		// If user input is valid, request server to validate against dictionary and prepare next turn
 		if (validateResponse()) {
-//			var data = {
 			socket.emit('nextTurn', {
 					currWord: currWord,
 					prevWord: prevWord,
@@ -254,7 +250,6 @@
 					nextLetter: l,
 					id: socket.id
 			});
-//			socket.emit('nextTurn',data);
 		}
 		
 
@@ -373,7 +368,9 @@
 	
 	/**
 	 * Processes error messages received from the server
-	 * @param - data {processStep: , message: }
+	 * @param {Object} data 
+	 * @param {String} data.processStep
+	 * @param {String} data.message
 	 */	
 	function error(data) {
 		var screen;
@@ -407,7 +404,10 @@
 	/**
 	 * Display messages in the appropriate screens. 
 	 * Error messages have class='error'. Informational messages have class='info'.
-	 * @param - data
+	 * @param {Object} data
+	 * @param {String} data.screen
+	 * @param {String} data.type
+	 * @param {String} data.message
 	 */
 	function showMessage(data) {
 		$(data.screen + ' .status').append('<span class="' + data.type + '">' + data.message + '</span>');
@@ -418,11 +418,12 @@
 	
 	
 	/**
-	 * 	If game is over display winner, all the words played and scores
+	 * Display winner(s).
+	 * @param {Array} data.winner
+	 *
 	 */	
-	function gameOver(data) {
+	function showWinner(winner) {
 		var text = '';
-		var winner = data.winner;
 		
 		// Display 'game-over' div and hide other divs.
 		showScreen('#game-over');
@@ -437,7 +438,6 @@
 				}
 			}
 			else if (winner.length > 1){
-				//TODO: Update this logic
 				text = "It's a tie between ";
 				for (var i=0; i<winner.length; i++){
 					if (winner[i].id === socket.id){
@@ -451,7 +451,7 @@
 			}
 		}
 		else { // all others quit.. win by default
-			text = 'Yoohoo! You Win';
+			text = 'Ended game..';
 		}
 		$("#game-over h3").text(text + '!');
 	}
@@ -522,38 +522,11 @@
 		$('#pin').removeClass('pin');
 		$('#ban').removeClass('ban');
 	}
-	
-	
-	function resetGameUI() {
-		// Reset form elements
-		$('#word-input').val('');
-		$('#letter-input').val('');
-		$('#letter-input').prop('disabled', true);
-		$('.pin-ban-rdo').prop('checked', false); 
-		$('.pin-ban-rdo').removeClass('uncheck'); // reset check/ uncheck toggle
-	}
-	
-	
 
-	
-	
-	/**
-	 * Truncate table to show only the specified number of rows
-	 * @param tableId
-	 * @param maxRows
-	 */
-	function truncateScoreBoard(tableId, maxRows) {
-		var numRows = $(tableId + ' TBODY TR').length;
-		if (numRows > maxRows) { // if number of rows in table body
-			for (var i=1; i <= numRows - maxRows; i++) {
-				$(tableId + ' TBODY TR:first').remove(); // remove first 
-			}
-		}
-	}
 
 	
 	/**
-	 * Removes player from current game
+	 * Removes player from current game.
 	 */
 	function leaveGame() {
 		if(confirm('Leave Game # ' + myRoomId + '?')) { // Show confirm dialog 
@@ -580,10 +553,8 @@
 			}
 		}
 
-		//if ($('#lobby').is(":visible")) { // Do this only if lobby is visible
-			updatePlayerList(); // Remove name from player list in lobby screen
-			checkStartStatus(); // Enable/ disable Start button in lobby screen
-		//} 
+		updatePlayerList(); // Remove name from player list in lobby screen
+		checkStartStatus(); // Enable/ disable Start button in lobby screen
 		
 		if (socket.id !== data.id) { // Display message to other players
 			showMessage({
@@ -743,6 +714,34 @@
 	}
 	
 	
+	/**
+	 * Resets form elements.
+	 */
+	function resetGameUI() {
+		$('#word-input').val('');
+		$('#letter-input').val('');
+		$('#letter-input').prop('disabled', true);
+		$('.pin-ban-rdo').prop('checked', false); 
+		$('.pin-ban-rdo').removeClass('uncheck'); // reset check/ uncheck toggle
+	}
+
+	
+	/**
+	 * Truncates table by removing rows from the top
+	 * to show only the specified number of rows.
+	 * @param {String} tableId
+	 * @param {Number} maxRows
+	 */
+	function truncateScoreBoard(tableId, maxRows) {
+		var numRows = $(tableId + ' TBODY TR').length;
+		if (numRows > maxRows) { // if number of rows in table body
+			for (var i=1; i <= numRows - maxRows; i++) {
+				$(tableId + ' TBODY TR:first').remove(); // remove first 
+			}
+		}
+	}
+	
+	
 	/** 
 	 * Checks if at least one letter is reused between the 2 strings
 	 * @param {String} string1
@@ -898,14 +897,15 @@
 	socket.on('playerLeftRoom', playerLeftRoom );
 	
 	socket.on('gameOver', function(data) {
+		stopTimer();
+		makeInactivePlayer();
 		if (!data.skipTurnProcessing) {
 			getNewTurnData(data);
 			updateScoreBoard (data.id,'#score-board');
 		}
 		updateTotalScore('#score-board');
-		gameOver(data);
-		stopTimer();
-		makeInactivePlayer();
+		showWinner(data.winner);
+
 	});
 	
 	socket.on('error', error);
