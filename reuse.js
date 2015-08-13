@@ -162,20 +162,17 @@ function joinExistingGame(data) {
  * sends word to all players in room. 
  */
 function firstTurn() {
-	var roomId,
+	var roomId  = roomLookup[this.id],
 		keys,
 		firstPlayerId;
 	
-	if (roomLookup[this.id] == undefined) { // Room cannot be found
-		io.sockets.to(this.id).emit('error', {message: 'Unable to communicate with room. '});
+	if (roomId == undefined) { // If no room found for this client
+		io.sockets.to(this.id).emit('error', {message: 'Cannot find game. '});
 		return;
-	}
-	else {
-		roomId = roomLookup[this.id];
 	}
 	
 	if (games[roomId] == undefined) { // Game data cannot be found
-		io.sockets.to(this.id).emit('error', {message: 'Unable to communicate with room. '});
+		io.sockets.to(this.id).emit('error', {message: 'Cannot find game. '});
 		return;
 	}
 	
@@ -217,11 +214,16 @@ function firstTurn() {
  */
 function nextTurn(data) {
 	data.id = this.id;
-	var roomId = roomLookup[data.id];
-	var valid;
+	var roomId = roomLookup[data.id],
+	 	valid;
 	
 	if (roomId == undefined) { // If no room found for client
-		io.sockets.to(data.id).emit('error', {message: 'Unable to communicate with room. '});
+		io.sockets.to(data.id).emit('error', {message: 'Cannot find game. '});
+		return;
+	}
+	
+	if (games[roomId] == undefined) { // Game data cannot be found
+		io.sockets.to(this.id).emit('error', {message: 'Cannot find game. '});
 		return;
 	}
 	
