@@ -1,4 +1,4 @@
-//var App = function() {
+var App = function() {
 	'use strict';
 	var socket = io.connect(),
 		myName, 		 // player name
@@ -908,7 +908,7 @@
 	
 	socket.on('error', error);
 	
-//};
-//
-//// Initial call
-//new App();
+};
+
+// Initial call
+new App();
