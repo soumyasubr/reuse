@@ -52,19 +52,8 @@ p {
 	letter-spacing: 8px;
 }
 
-/* input[type="password"], */
-/* input[type="datetime"], */
-/* input[type="datetime-local"], */
-/* input[type="date"], */
-/* input[type="email"], */
-/* input[type="month"], */
 input[type="number"],
-/* input[type="tel"], */
 input[type="text"]
-/* input[type="time"], */
-/* input[type="week"], */
-/* input[type="url"], */
-/* textarea */
 { 
    -webkit-appearance: none; /*remove platform specific styling */
 }
@@ -82,17 +71,13 @@ input.holo[type='number'] {
 	border-top: none;
 	border-bottom: none;
 	background: bottom left linear-gradient(#cbcbcb, #cbcbcb) no-repeat, bottom center linear-gradient(#cbcbcb, #cbcbcb) repeat-x, bottom right linear-gradient(#cbcbcb, #cbcbcb) no-repeat;
-/* 	background: bottom left linear-gradient(#007AFF, #007AFF) no-repeat, bottom center linear-gradient(#007AFF, #007AFF) repeat-x, bottom right linear-gradient(#007AFF, #007AFF) no-repeat; */
 	background-size: 1px 8px, 1px 1px, 1px 8px;
-/* 	color: #007AFF; */
 }
 
 input.holo[type='text']:hover, 
 input.holo[type='text']:focus,
 input.holo[type='number']:hover, 
 input.holo[type='number']:focus {
-/* 	background: bottom left linear-gradient(#5a5a5a, #5a5a5a) no-repeat, bottom center linear-gradient(#5a5a5a, #5a5a5a) repeat-x, bottom right linear-gradient(#5a5a5a, #5a5a5a) no-repeat; */
-/* 	background: bottom left linear-gradient(blue, blue) no-repeat, bottom center linear-gradient(blue, blue) repeat-x, bottom right linear-gradient(blue, blue) no-repeat; */
 	background-size: 1px 8px, 1px 1px, 1px 8px;	
 } 
 
@@ -118,13 +103,6 @@ input.holo[type='number']:focus {
 	padding-right: 20px;
 }
 
-/* .invisible-layer {
-	visibility: hidden;
-} */
-/* .current-view {
-	z-index: 1;	
-} */
-
 .light-color {
 	color: #a9a9a9;
 }
@@ -144,25 +122,6 @@ table {
     width: 100%;
 }
 
-/*
-table thead, table tbody {
-    float: left;
-    width: 100%;
-}
-table tbody {
-    overflow: auto;
-    height: 150px;
-}
-table tr {
-    width: 100%;
-    display: table;
-    text-align: left;
-}
-table th, table td {
-    width: 50px;
-    text-align: center;
-}
-*/
 th {
 	text-align: left;
 } 
@@ -171,12 +130,6 @@ th, td {
 	padding: 10px;
     /*width: 50px;*/
     /*text-align: center;*/
-}
-
-
-/*TODO: Removing this ul messes up submit button alignment. Fix this*/
-ul {
-	list-style: none;
 }
 
 .center {
@@ -254,16 +207,13 @@ ul {
 .reused {
 	color: #007AFF;
 }
-/*#word-input {}*/
 
 #home {
 	position:absolute;
-	/*background: #FFC;*/
 	width: 100%;
 	height: 100%;		
 }
 
-/* #home .status { */
 .status {
 	height: 28px;
 	margin: 20px 0px 20px 0px;
@@ -273,10 +223,8 @@ ul {
 
 #lobby {
 	position:absolute;
-	/*background: #CCF;*/
 	width: 100%;
 	height: 100%;
-	/*z-index: 0;*/
 }
 
 #submit-btn {

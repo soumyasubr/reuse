@@ -245,7 +245,7 @@ var App = function() {
 			socket.emit('nextTurn', {
 					currWord: currWord,
 					prevWord: prevWord,
-					pinOrBan: myPinOrBan,  //TODO: place this in turnsArray
+					pinOrBan: myPinOrBan,
 					letter: myLetter,
 					nextPinOrBan: pb,
 					nextLetter: l,
