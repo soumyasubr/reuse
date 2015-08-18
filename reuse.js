@@ -55,6 +55,11 @@ function createNewGame(input) {
 	 	room,
 	 	id = this.id;
 	
+	//validate numPlayers
+	if (!input.numPlayers || input.numPlayers > config.MAX_PLAYERS) { 
+		input.numPlayers = config.MAX_PLAYERS;
+	}
+	
 	// Create a unique room ID
 	do {
 		roomId = parseInt(Math.random() * 100); // Generate random roomId
@@ -182,21 +187,32 @@ function firstTurn() {
 	}
 	
     keys = Object.keys(games[roomId].players); // Get list of socket IDs in the room
+    
+	if (keys.length < 2) { // Check for min number of players
+		io.sockets.to(this.id).emit('error', {message: 'Not enough players in room. '});
+		return;
+	} 
+    
     firstPlayerId = keys[0];
     
-    // update information on the server
-	games[roomId].players[firstPlayerId].turn++; //increment turn # for first player
-	games[roomId].players[firstPlayerId].isCurrPlayer = true; // update current player flag
-	games[roomId].state = 'started'; // update game state
-	
-	// send new word to all clients in the room
-    io.sockets.to(roomId).emit('newWord', { 
-			nextPlayerId: keys[0], // first player to join the room gets the first turn
-			nextPlayerName: games[roomId].players[keys[0]].name, // name of first player
-			currWord: randomWord(3,7).toUpperCase(), //random word between 3 and 7 characters
-			currPinBanLeft: config.MAX_PIN_BAN, // number of pins/ bans available to first player
-			pinOrBan: '', // no pin or ban for first turn
-    });
+    try {
+	    // update information on the server
+		games[roomId].players[firstPlayerId].turn++; //increment turn # for first player
+		games[roomId].players[firstPlayerId].isCurrPlayer = true; // update current player flag
+		games[roomId].state = 'started'; // update game state
+		
+		// send new word to all clients in the room
+	    io.sockets.to(roomId).emit('newWord', { 
+				nextPlayerId: keys[0], // first player to join the room gets the first turn
+				nextPlayerName: games[roomId].players[keys[0]].name, // name of first player
+				currWord: randomWord(3,7).toUpperCase(), //random word between 3 and 7 characters
+				currPinBanLeft: config.MAX_PIN_BAN, // number of pins/ bans available to first player
+				pinOrBan: '', // no pin or ban for first turn
+	    });
+    }
+    catch (err) {
+    	console.log(err)
+    }
 }
 
 
@@ -257,11 +273,9 @@ function nextTurn(data) {
 	}
     games[roomId].players[data.id].totalScore += data.currScore; //update total score
     data.totalScore = games[roomId].players[data.id].totalScore; 
-	
-	
-	//**** If player who left had the active turn *****//
-	var nextPlayerId = identifyNextPlayer(games[roomId]);
-	if (!isGameOver(roomId) && nextPlayerId) { // If game is NOT over
+		
+	var nextPlayerId = identifyNextPlayer(games[roomId]); // get id of next player, if exists
+	if (!isGameOver(roomId)) { // If game is not over
         // Assign pin/ ban for next turn
         data.pinOrBan = data.nextPinOrBan; 
         data.letter = data.nextLetter;
@@ -311,7 +325,7 @@ function disconnect() {
 		return;
 	}
 	
-	if (games[roomId] == undefined) { // game has ended, and the object no longer exists
+	if (games[roomId] == undefined) { // game has already ended, and game data was deleted
 		removePlayer(); // delete player info
 		return; // Do nothing more
 	}
@@ -328,7 +342,7 @@ function disconnect() {
 	console.log(players[id].name, 'left room', roomId);
 
 	// if game is in waiting state..
-	if (games[roomId].state !== 'started') {
+	if (games[roomId].state === 'waiting') {
 		removePlayer(); // delete player info
 		return; // Do nothing more
 	}
@@ -341,20 +355,22 @@ function disconnect() {
 	}
 
 	removePlayer(); // delete player info
+	var nextPlayerId = identifyNextPlayer(games[roomId]);
+	
+		if (!nextPlayerId) { // handle game over if there is only 1 player left in room
+			handleGameOver(roomId, data, nextPlayerId);
+			return;
+		}
 	
 	// If the player that left did not have the active turn..
+	console.log ('disconnect', currPlayerId, id);
 	if (currPlayerId !== id) {
-		var nextPlayerId = identifyNextPlayer(games[roomId]);
-		if (!nextPlayerId) { // handle game over only if there are no more players left!
-			handleGameOver(roomId, data, nextPlayerId);
-		}
-		return; 
+		return;
 	}
-	
+		
 	//**** If player who left had the active turn *****//
-	var nextPlayerId = identifyNextPlayer(games[roomId]);
 
-	if (!isGameOver(roomId) && nextPlayerId) { // If game is NOT over
+	if (!isGameOver(roomId)) { // If game is NOT over
     	// Get next player info
 		data.nextPlayerId = nextPlayerId;
 		data.nextPlayerName = games[roomId].players[data.nextPlayerId].name; // Name of next player
@@ -668,8 +684,13 @@ function identifyNextPlayer(roomObj) {
  * @returns {Boolean}
  */
 function isGameOver(roomId) {
+	if (!games[roomId]) {
+		return true; //game over
+	}
+	
 	var players = games[roomId].players; // Get list of players in room
 	var turnsPlayed;
+	
 	for (var key in players) {
 			turnsPlayed = players[key].turn; // last player's turn
 	}
